@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Bridge - PrestaShop</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2d3748;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.8;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .test-section h2 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .test-section p {
+            color: #4a5568;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            color: #2d3748;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+
+        .result-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 2px solid #e2e8f0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result-box pre {
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .status.loading {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .time-info {
+            color: #718096;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .alert.info {
+            background: #bee3f8;
+            color: #2c5282;
+            border-left: 4px solid #3182ce;
+        }
+
+        .alert.warning {
+            background: #feebc8;
+            color: #7c2d12;
+            border-left: 4px solid #dd6b20;
+        }
+
+        .product-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            margin-top: 15px;
+        }
+
+        .product-card h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .product-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .product-info-item {
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 4px;
+        }
+
+        .product-info-label {
+            font-size: 12px;
+            color: #718096;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .product-info-value {
+            font-size: 16px;
+            color: #2d3748;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Test API Bridge - PrestaShop</h1>
+            <p>Herramienta de testing para verificar la integración VB6 → API Bridge → PrestaShop 8.1</p>
+        </div>
+
+        <div class="content">
+            <div class="alert info">
+                <strong>ℹ️ Información:</strong> Esta página permite probar los endpoints del API Bridge sin necesidad de VB6.
+                Asegúrate de que el archivo <code>api_config.php</code> está configurado correctamente.
+            </div>
+
+            <!-- TEST 1: Verificar Configuración -->
+            <div class="test-section">
+                <h2>1️⃣ Test de Configuración</h2>
+                <p>Verifica que el API Bridge está correctamente configurado y puede conectarse a PrestaShop.</p>
+
+                <div class="form-group">
+                    <label for="bridgeURL">URL del API Bridge:</label>
+                    <input type="text" id="bridgeURL" value="https://www.canelamoda.es/api_bridge/bridge.php" placeholder="https://tu-servidor.com/api_bridge/bridge.php">
+                </div>
+
+                <button onclick="testConexion()">🔍 Probar Conexión</button>
+
+                <div id="resultTest1" class="result-box" style="display:none;"></div>
+            </div>
+
+            <!-- TEST 2: Buscar Producto -->
+            <div class="test-section">
+                <h2>2️⃣ Buscar Producto por Código</h2>
+                <p>Busca un producto por su código (campo "reference" o "ean13" de PrestaShop).</p>
+
+                <div class="form-group">
+                    <label for="productCode">Código del Producto:</label>
+                    <input type="text" id="productCode" placeholder="ABC-12345678" value="">
+                </div>
+
+                <button onclick="buscarProducto()">🔍 Buscar Producto</button>
+
+                <div id="resultTest2" class="result-box" style="display:none;"></div>
+            </div>
+
+            <!-- TEST 3: Obtener Stock -->
+            <div class="test-section">
+                <h2>3️⃣ Obtener Stock de Producto</h2>
+                <p>Consulta el stock disponible de un producto por su ID de PrestaShop.</p>
+
+                <div class="form-group">
+                    <label for="productID">ID del Producto:</label>
+                    <input type="text" id="productID" placeholder="123" value="">
+                </div>
+
+                <button onclick="obtenerStock()">📦 Obtener Stock</button>
+
+                <div id="resultTest3" class="result-box" style="display:none;"></div>
+            </div>
+
+            <!-- TEST 4: Información Completa -->
+            <div class="test-section">
+                <h2>4️⃣ Información Completa de Producto</h2>
+                <p>Obtiene todos los datos de un producto por su ID.</p>
+
+                <div class="form-group">
+                    <label for="productIDInfo">ID del Producto:</label>
+                    <input type="text" id="productIDInfo" placeholder="123" value="">
+                </div>
+
+                <button onclick="infoProducto()">ℹ️ Obtener Información</button>
+
+                <div id="resultTest4" class="result-box" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Función para hacer peticiones HTTP
+        async function hacerPeticion(url) {
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                return { success: true, data: data, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        // TEST 1: Verificar configuración
+        async function testConexion() {
+            const resultDiv = document.getElementById('resultTest1');
+            const bridgeURL = document.getElementById('bridgeURL').value;
+
+            if (!bridgeURL) {
+                alert('Por favor, ingresa la URL del API Bridge');
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="status loading">⏳ Conectando...</div>';
+
+            const url = bridgeURL + '?action=test';
+            const resultado = await hacerPeticion(url);
+
+            if (!resultado.success) {
+                resultDiv.innerHTML = `
+                    <div class="status error">❌ Error de Conexión</div>
+                    <pre>${resultado.error}</pre>
+                    <div class="alert warning">
+                        <strong>⚠️ Posibles causas:</strong><br>
+                        • URL incorrecta<br>
+                        • Servidor no accesible<br>
+                        • CORS bloqueado (abrir en servidor, no como archivo local)
+                    </div>
+                `;
+                return;
+            }
+
+            if (resultado.data.success) {
+                resultDiv.innerHTML = `
+                    <div class="status success">✅ Conexión Exitosa</div>
+                    <div class="product-card">
+                        <h3>Información del Servidor</h3>
+                        <div class="product-info">
+                            <div class="product-info-item">
+                                <div class="product-info-label">PrestaShop URL</div>
+                                <div class="product-info-value">${resultado.data.data.prestashop_url}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">API Key Configurada</div>
+                                <div class="product-info-value">${resultado.data.data.api_key_configurada ? '✅ Sí' : '❌ No'}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Tiempo de Respuesta</div>
+                                <div class="product-info-value">${resultado.data.data.tiempo_respuesta_ms} ms</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">PHP Version</div>
+                                <div class="product-info-value">${resultado.data.data.php_version}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Debug Mode</div>
+                                <div class="product-info-value">${resultado.data.data.debug_mode ? '🔍 Activado' : 'Desactivado'}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Caché</div>
+                                <div class="product-info-value">${resultado.data.data.cache_enabled ? '✅ Activado' : 'Desactivado'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="time-info">Timestamp: ${resultado.data.data.timestamp}</div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="status error">❌ Error en API Bridge</div>
+                    <pre>${JSON.stringify(resultado.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        // TEST 2: Buscar producto
+        async function buscarProducto() {
+            const resultDiv = document.getElementById('resultTest2');
+            const bridgeURL = document.getElementById('bridgeURL').value;
+            const codigo = document.getElementById('productCode').value;
+
+            if (!codigo) {
+                alert('Por favor, ingresa un código de producto');
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="status loading">🔍 Buscando producto...</div>';
+
+            const url = bridgeURL + '?action=buscar_producto&codigo=' + encodeURIComponent(codigo);
+            const resultado = await hacerPeticion(url);
+
+            if (!resultado.success) {
+                resultDiv.innerHTML = `<div class="status error">❌ Error: ${resultado.error}</div>`;
+                return;
+            }
+
+            if (resultado.data.success) {
+                const producto = resultado.data.data;
+                resultDiv.innerHTML = `
+                    <div class="status success">✅ Producto Encontrado</div>
+                    <div class="product-card">
+                        <h3>${producto.nombre}</h3>
+                        <div class="product-info">
+                            <div class="product-info-item">
+                                <div class="product-info-label">ID PrestaShop</div>
+                                <div class="product-info-value">${producto.id}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Reference</div>
+                                <div class="product-info-value">${producto.reference}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">EAN13</div>
+                                <div class="product-info-value">${producto.ean13 || 'N/A'}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Precio sin IVA</div>
+                                <div class="product-info-value">${producto.precio_sin_iva.toFixed(2)} €</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Precio con IVA</div>
+                                <div class="product-info-value" style="font-weight:bold;color:#667eea;">${producto.precio_con_iva.toFixed(2)} €</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Stock Disponible</div>
+                                <div class="product-info-value" style="color:${producto.stock > 0 ? '#38a169' : '#e53e3e'};">
+                                    ${producto.stock} unidades
+                                </div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">IVA</div>
+                                <div class="product-info-value">${producto.iva}%</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Estado</div>
+                                <div class="product-info-value">${producto.activo ? '✅ Activo' : '❌ Inactivo'}</div>
+                            </div>
+                        </div>
+                        ${producto.descripcion ? '<p style="margin-top:15px;color:#4a5568;"><strong>Descripción:</strong> ' + producto.descripcion + '</p>' : ''}
+                    </div>
+                    <div class="time-info">Tiempo de respuesta: ${resultado.data.tiempo_ms} ms</div>
+                    <details style="margin-top:15px;">
+                        <summary style="cursor:pointer;color:#667eea;">Ver JSON completo</summary>
+                        <pre style="margin-top:10px;">${JSON.stringify(producto, null, 2)}</pre>
+                    </details>
+                `;
+
+                // Auto-rellenar ID para otros tests
+                document.getElementById('productID').value = producto.id;
+                document.getElementById('productIDInfo').value = producto.id;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="status error">❌ Producto No Encontrado</div>
+                    <div class="alert warning">
+                        <strong>⚠️ El producto "${codigo}" no existe en PrestaShop.</strong><br><br>
+                        Verifica que el código es correcto (campo "reference" o "ean13").
+                    </div>
+                    <pre>${JSON.stringify(resultado.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        // TEST 3: Obtener stock
+        async function obtenerStock() {
+            const resultDiv = document.getElementById('resultTest3');
+            const bridgeURL = document.getElementById('bridgeURL').value;
+            const productID = document.getElementById('productID').value;
+
+            if (!productID) {
+                alert('Por favor, ingresa un ID de producto');
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="status loading">📦 Consultando stock...</div>';
+
+            const url = bridgeURL + '?action=obtener_stock&id=' + productID;
+            const resultado = await hacerPeticion(url);
+
+            if (!resultado.success) {
+                resultDiv.innerHTML = `<div class="status error">❌ Error: ${resultado.error}</div>`;
+                return;
+            }
+
+            if (resultado.data.success) {
+                const stock = resultado.data.data;
+                resultDiv.innerHTML = `
+                    <div class="status success">✅ Stock Obtenido</div>
+                    <div class="product-card">
+                        <div class="product-info">
+                            <div class="product-info-item">
+                                <div class="product-info-label">ID Producto</div>
+                                <div class="product-info-value">${stock.id_producto}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Cantidad Disponible</div>
+                                <div class="product-info-value" style="font-size:24px;color:${stock.cantidad > 0 ? '#38a169' : '#e53e3e'};">
+                                    ${stock.cantidad}
+                                </div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">Disponibilidad</div>
+                                <div class="product-info-value">${stock.disponible ? '✅ En stock' : '❌ Agotado'}</div>
+                            </div>
+                            <div class="product-info-item">
+                                <div class="product-info-label">ID Stock Available</div>
+                                <div class="product-info-value">${stock.id_stock_available}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="time-info">Tiempo de respuesta: ${resultado.data.tiempo_ms} ms</div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="status error">❌ Error</div>
+                    <pre>${JSON.stringify(resultado.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        // TEST 4: Info producto
+        async function infoProducto() {
+            const resultDiv = document.getElementById('resultTest4');
+            const bridgeURL = document.getElementById('bridgeURL').value;
+            const productID = document.getElementById('productIDInfo').value;
+
+            if (!productID) {
+                alert('Por favor, ingresa un ID de producto');
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="status loading">ℹ️ Obteniendo información...</div>';
+
+            const url = bridgeURL + '?action=info_producto&id=' + productID;
+            const resultado = await hacerPeticion(url);
+
+            if (!resultado.success) {
+                resultDiv.innerHTML = `<div class="status error">❌ Error: ${resultado.error}</div>`;
+                return;
+            }
+
+            if (resultado.data.success) {
+                const producto = resultado.data.data;
+                resultDiv.innerHTML = `
+                    <div class="status success">✅ Información Completa</div>
+                    <div class="product-card">
+                        <h3>${producto.nombre}</h3>
+                        <pre style="margin-top:15px;">${JSON.stringify(producto, null, 2)}</pre>
+                    </div>
+                    <div class="time-info">Tiempo de respuesta: ${resultado.data.tiempo_ms} ms</div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="status error">❌ Producto no encontrado</div>
+                    <pre>${JSON.stringify(resultado.data, null, 2)}</pre>
+                `;
+            }
+        }
+
+        // Auto-test al cargar la página
+        window.onload = function() {
+            console.log('🧪 Test API Bridge cargado');
+            console.log('Versión: 1.0.0');
+            console.log('Fecha: 2025-12-19');
+        };
+    </script>
+</body>
+</html>

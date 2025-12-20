@@ -2,91 +2,118 @@
 -- SCRIPT SQL PARA CREAR TABLAS DE INTEGRACIÓN PRESTASHOP
 -- ========================================================================
 -- Base de datos: canela.mdb (Microsoft Access)
--- Fecha: 19/12/2025
+-- Fecha: 19/12/2025 - VERSIÓN CORREGIDA
 -- Propósito: Crear tablas para caché y sincronización con PrestaShop 8.1
 --
 -- INSTRUCCIONES:
 -- 1. Abrir canela.mdb en Microsoft Access
 -- 2. Ir a: Crear > Diseño de consulta > Cerrar ventana de agregar tablas
 -- 3. Ver > Vista SQL
--- 4. Copiar y pegar cada bloque CREATE TABLE por separado
--- 5. Ejecutar (icono !)
--- 6. Repetir para cada tabla
+-- 4. Copiar y pegar CADA BLOQUE por separado (entre líneas de ====)
+-- 5. Ejecutar cada bloque con el icono ! (Ejecutar)
+-- 6. Repetir para TODOS los bloques
+--
+-- IMPORTANTE: Access no acepta sintaxis SQL estándar en algunos casos
+-- Esta versión está adaptada específicamente para Access
 -- ========================================================================
 
 -- ========================================================================
--- TABLA 1: ConfigAPI - Configuración de la API
+-- BLOQUE 1: Tabla ConfigAPI
 -- ========================================================================
--- Almacena parámetros de configuración para evitar hardcodear valores
--- en el código VB6
 
 CREATE TABLE ConfigAPI (
-    Clave TEXT(50) CONSTRAINT PK_ConfigAPI PRIMARY KEY,
+    Clave TEXT(50),
     Valor MEMO,
-    FechaModificacion DATETIME DEFAULT Now()
+    FechaModificacion DATETIME,
+    CONSTRAINT PK_ConfigAPI PRIMARY KEY (Clave)
 );
 
--- Insertar datos iniciales
--- IMPORTANTE: Cambiar la URL cuando tengas el bridge instalado en tu servidor
-INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion) VALUES
-    ('API_BRIDGE_URL', 'https://www.canelamoda.es/api_bridge/bridge.php', Now());
+-- ========================================================================
+-- BLOQUE 2: Insertar datos en ConfigAPI
+-- ========================================================================
+-- Ejecutar CADA INSERT por separado
 
-INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion) VALUES
-    ('API_TIMEOUT', '30', Now());
-
-INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion) VALUES
-    ('SYNC_ENABLED', 'True', Now());
-
-INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion) VALUES
-    ('DEBUG_MODE', 'False', Now());
-
-INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion) VALUES
-    ('CACHE_EXPIRATION_MINUTES', '60', Now());
-
-INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion) VALUES
-    ('LAST_SYNC', '', Now());
-
+INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion)
+VALUES ('API_BRIDGE_URL', 'https://www.canelamoda.es/api_bridge/bridge.php', Now());
 
 -- ========================================================================
--- TABLA 2: ProductosPS - Caché de productos de PrestaShop
+-- BLOQUE 3: Más datos ConfigAPI
 -- ========================================================================
--- Almacena información de productos consultados para funcionamiento offline
--- y mejor rendimiento
+
+INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion)
+VALUES ('API_TIMEOUT', '30', Now());
+
+-- ========================================================================
+-- BLOQUE 4: Más datos ConfigAPI
+-- ========================================================================
+
+INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion)
+VALUES ('SYNC_ENABLED', 'True', Now());
+
+-- ========================================================================
+-- BLOQUE 5: Más datos ConfigAPI
+-- ========================================================================
+
+INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion)
+VALUES ('DEBUG_MODE', 'False', Now());
+
+-- ========================================================================
+-- BLOQUE 6: Más datos ConfigAPI
+-- ========================================================================
+
+INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion)
+VALUES ('CACHE_EXPIRATION_MINUTES', '60', Now());
+
+-- ========================================================================
+-- BLOQUE 7: Más datos ConfigAPI
+-- ========================================================================
+
+INSERT INTO ConfigAPI (Clave, Valor, FechaModificacion)
+VALUES ('LAST_SYNC', '', Now());
+
+-- ========================================================================
+-- BLOQUE 8: Tabla ProductosPS
+-- ========================================================================
 
 CREATE TABLE ProductosPS (
-    IDProductoPS LONG CONSTRAINT PK_ProductosPS PRIMARY KEY,
-    Referencia TEXT(50) NOT NULL,
+    IDProductoPS LONG,
+    Referencia TEXT(50),
     EAN13 TEXT(13),
     Nombre TEXT(255),
     Descripcion MEMO,
-    PrecioSinIVA CURRENCY DEFAULT 0,
-    PrecioConIVA CURRENCY DEFAULT 0,
-    IVA INTEGER DEFAULT 21,
-    StockPS LONG DEFAULT 0,
-    StockLocal LONG DEFAULT 0,
-    DiferenciaStock LONG DEFAULT 0,
+    PrecioSinIVA CURRENCY,
+    PrecioConIVA CURRENCY,
+    IVA INTEGER,
+    StockPS LONG,
+    StockLocal LONG,
+    DiferenciaStock LONG,
     UltimaConsulta DATETIME,
     UltimaActualizacion DATETIME,
-    EstadoSync TEXT(20) DEFAULT 'OK',
+    EstadoSync TEXT(20),
     URLImagen TEXT(255),
-    Activo YESNO DEFAULT True
+    Activo YESNO,
+    CONSTRAINT PK_ProductosPS PRIMARY KEY (IDProductoPS)
 );
 
--- Crear índice único en Referencia
+-- ========================================================================
+-- BLOQUE 9: Índice único en Referencia
+-- ========================================================================
+
 CREATE UNIQUE INDEX idx_referencia ON ProductosPS(Referencia);
 
--- Crear índice en EstadoSync para consultas rápidas
+-- ========================================================================
+-- BLOQUE 10: Índice en EstadoSync
+-- ========================================================================
+
 CREATE INDEX idx_estado ON ProductosPS(EstadoSync);
 
-
 -- ========================================================================
--- TABLA 3: LogSincronizacion - Auditoría de operaciones API
+-- BLOQUE 11: Tabla LogSincronizacion
 -- ========================================================================
--- Registra todas las peticiones a PrestaShop para debugging y auditoría
 
 CREATE TABLE LogSincronizacion (
-    ID AUTOINCREMENT CONSTRAINT PK_LogSincronizacion PRIMARY KEY,
-    FechaHora DATETIME DEFAULT Now(),
+    ID AUTOINCREMENT,
+    FechaHora DATETIME,
     TipoOperacion TEXT(50),
     IDProductoPS LONG,
     Referencia TEXT(50),
@@ -94,61 +121,73 @@ CREATE TABLE LogSincronizacion (
     RespuestaAPI MEMO,
     CodigoHTTP INTEGER,
     TiempoRespuesta INTEGER,
-    UsuarioVB TEXT(50)
+    UsuarioVB TEXT(50),
+    CONSTRAINT PK_LogSincronizacion PRIMARY KEY (ID)
 );
 
--- Índice en FechaHora para consultas por fecha
+-- ========================================================================
+-- BLOQUE 12: Índice en FechaHora
+-- ========================================================================
+
 CREATE INDEX idx_fecha ON LogSincronizacion(FechaHora);
 
--- Índice en TipoOperacion para filtrar por tipo
+-- ========================================================================
+-- BLOQUE 13: Índice en TipoOperacion
+-- ========================================================================
+
 CREATE INDEX idx_tipo ON LogSincronizacion(TipoOperacion);
 
-
 -- ========================================================================
--- TABLA 4: MapeoArticulosPS - Mapeo entre artículos locales y PrestaShop
+-- BLOQUE 14: Tabla MapeoArticulosPS
 -- ========================================================================
--- Relaciona IDs locales (articulos.idart) con IDs de PrestaShop
 
 CREATE TABLE MapeoArticulosPS (
-    IDArticuloLocal LONG CONSTRAINT PK_MapeoArticulosPS PRIMARY KEY,
+    IDArticuloLocal LONG,
     IDProductoPS LONG,
     Referencia TEXT(50),
-    FechaMapeo DATETIME DEFAULT Now(),
-    MapeadoPor TEXT(50)
+    FechaMapeo DATETIME,
+    MapeadoPor TEXT(50),
+    CONSTRAINT PK_MapeoArticulosPS PRIMARY KEY (IDArticuloLocal)
 );
 
--- Índice en IDProductoPS para búsquedas inversas
+-- ========================================================================
+-- BLOQUE 15: Índice en IDProductoPS
+-- ========================================================================
+
 CREATE INDEX idx_idproductops ON MapeoArticulosPS(IDProductoPS);
 
-
 -- ========================================================================
--- TABLA 5: ColaSyncStock - Cola de sincronización offline (FASE 2)
+-- BLOQUE 16: Tabla ColaSyncStock (para Fase 2)
 -- ========================================================================
--- Esta tabla se usará en Fase 2 cuando implementemos escritura
--- Por ahora la creamos vacía para tener la estructura lista
 
 CREATE TABLE ColaSyncStock (
-    ID AUTOINCREMENT CONSTRAINT PK_ColaSyncStock PRIMARY KEY,
+    ID AUTOINCREMENT,
     IDVenta LONG,
     IDProductoPS LONG,
     Referencia TEXT(50),
-    CantidadVendida INTEGER DEFAULT 1,
+    CantidadVendida INTEGER,
     FechaVenta DATETIME,
-    Procesado YESNO DEFAULT False,
+    Procesado YESNO,
     FechaProcesado DATETIME,
-    Reintentos INTEGER DEFAULT 0,
-    ErrorMensaje MEMO
+    Reintentos INTEGER,
+    ErrorMensaje MEMO,
+    CONSTRAINT PK_ColaSyncStock PRIMARY KEY (ID)
 );
 
--- Índice en Procesado para consultas de cola pendiente
+-- ========================================================================
+-- BLOQUE 17: Índice en Procesado
+-- ========================================================================
+
 CREATE INDEX idx_procesado ON ColaSyncStock(Procesado);
 
--- Índice en FechaVenta para ordenar cola
+-- ========================================================================
+-- BLOQUE 18: Índice en FechaVenta
+-- ========================================================================
+
 CREATE INDEX idx_fecha_venta ON ColaSyncStock(FechaVenta);
 
-
 -- ========================================================================
--- VERIFICACIÓN DE TABLAS CREADAS
+-- VERIFICACIÓN: Consultar tablas creadas
 -- ========================================================================
 -- Ejecutar esta consulta para verificar que todas las tablas existen:
 --
@@ -158,14 +197,44 @@ CREATE INDEX idx_fecha_venta ON ColaSyncStock(FechaVenta);
 --   AND MSysObjects.Name IN ('ConfigAPI','ProductosPS','LogSincronizacion','MapeoArticulosPS','ColaSyncStock')
 -- ORDER BY MSysObjects.Name;
 --
--- Deberías ver 5 resultados
+-- Deberías ver 5 resultados (las 5 tablas)
 
 -- ========================================================================
 -- CONSULTA DE PRUEBA
 -- ========================================================================
--- Verifica que ConfigAPI tiene los valores correctos:
+-- Verifica que ConfigAPI tiene los 6 valores correctos:
+--
 -- SELECT * FROM ConfigAPI ORDER BY Clave;
+--
+-- Deberías ver 6 registros:
+-- 1. API_BRIDGE_URL
+-- 2. API_TIMEOUT
+-- 3. CACHE_EXPIRATION_MINUTES
+-- 4. DEBUG_MODE
+-- 5. LAST_SYNC
+-- 6. SYNC_ENABLED
+
+-- ========================================================================
+-- VALORES POR DEFECTO
+-- ========================================================================
+-- Nota: Access no permite DEFAULT con funciones en CREATE TABLE
+-- Por eso los valores por defecto se deben establecer vía VB6 o manualmente
+--
+-- Si necesitas establecer valores por defecto después:
+--
+-- Para ProductosPS:
+-- UPDATE ProductosPS SET PrecioSinIVA = 0 WHERE PrecioSinIVA IS NULL;
+-- UPDATE ProductosPS SET PrecioConIVA = 0 WHERE PrecioConIVA IS NULL;
+-- UPDATE ProductosPS SET IVA = 21 WHERE IVA IS NULL;
+-- UPDATE ProductosPS SET StockPS = 0 WHERE StockPS IS NULL;
+-- UPDATE ProductosPS SET EstadoSync = 'OK' WHERE EstadoSync IS NULL;
+-- UPDATE ProductosPS SET Activo = True WHERE Activo IS NULL;
 
 -- ========================================================================
 -- FIN DEL SCRIPT
+-- ========================================================================
+-- Total de bloques a ejecutar: 18
+-- Tablas creadas: 5 (ConfigAPI, ProductosPS, LogSincronizacion, MapeoArticulosPS, ColaSyncStock)
+-- Índices creados: 7
+-- Registros insertados: 6 (en ConfigAPI)
 -- ========================================================================

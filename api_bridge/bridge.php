@@ -330,6 +330,180 @@ function obtenerProductoCompleto($idProducto) {
 }
 
 /**
+ * Obtener combinaciones (tallas) de un producto
+ */
+function obtenerCombinaciones($idProducto, $productXML) {
+    $combinaciones = [];
+
+    // Extraer IDs de combinaciones del XML del producto
+    $comboIds = [];
+    if (isset($productXML->associations->combinations->combination)) {
+        foreach ($productXML->associations->combinations->combination as $combo) {
+            $comboIds[] = (int)$combo->id;
+        }
+    }
+
+    if (empty($comboIds)) {
+        return $combinaciones;
+    }
+
+    // Obtener detalles de todas las combinaciones
+    $combosFilter = implode('|', $comboIds);
+    $resultadoCombos = callPrestaShop("combinations?filter[id]=[$combosFilter]&display=full");
+
+    if ($resultadoCombos['code'] != 200) {
+        registrarLog('ERROR', 'obtenerCombinaciones', "Error al obtener combinaciones: HTTP {$resultadoCombos['code']}");
+        return $combinaciones;
+    }
+
+    try {
+        $combosXML = simplexml_load_string($resultadoCombos['data']);
+
+        if (!isset($combosXML->combinations->combination)) {
+            return $combinaciones;
+        }
+
+        // Obtener stock para todas las combinaciones
+        $stockData = obtenerStockCombinaciones($idProducto);
+
+        // Obtener nombres de las tallas (product_option_values)
+        $tallaIds = [];
+        foreach ($combosXML->combinations->combination as $combo) {
+            if (isset($combo->associations->product_option_values->product_option_value)) {
+                foreach ($combo->associations->product_option_values->product_option_value as $pov) {
+                    $tallaIds[] = (int)$pov->id;
+                }
+            }
+        }
+
+        $tallasNombres = obtenerNombresTallas($tallaIds);
+
+        // Parsear cada combinación
+        foreach ($combosXML->combinations->combination as $combo) {
+            $idCombinacion = (int)$combo->id;
+            $idProductoAttr = (int)$combo->id;
+
+            // Extraer talla de esta combinación
+            $talla = '';
+            $idTalla = 0;
+            if (isset($combo->associations->product_option_values->product_option_value)) {
+                foreach ($combo->associations->product_option_values->product_option_value as $pov) {
+                    $idTalla = (int)$pov->id;
+                    $talla = isset($tallasNombres[$idTalla]) ? $tallasNombres[$idTalla] : "Talla $idTalla";
+                    break; // Solo tomamos la primera (que debería ser la talla)
+                }
+            }
+
+            // Obtener stock de esta combinación
+            $stockKey = "p{$idProducto}-a{$idProductoAttr}";
+            $stock = isset($stockData[$stockKey]) ? $stockData[$stockKey] : 0;
+
+            $combinaciones[] = [
+                'id_combinacion' => $idCombinacion,
+                'id_product_attribute' => $idProductoAttr,
+                'talla' => $talla,
+                'id_talla' => $idTalla,
+                'stock' => $stock,
+                'disponible' => $stock > 0
+            ];
+        }
+
+    } catch (Exception $e) {
+        registrarLog('ERROR', 'obtenerCombinaciones', "Error al parsear combinaciones: {$e->getMessage()}");
+    }
+
+    return $combinaciones;
+}
+
+/**
+ * Obtener stock de todas las combinaciones de un producto
+ */
+function obtenerStockCombinaciones($idProducto) {
+    $stockData = [];
+
+    $resultado = callPrestaShop("stock_availables?filter[id_product]=$idProducto&display=full");
+
+    if ($resultado['code'] != 200) {
+        return $stockData;
+    }
+
+    try {
+        $stockXML = simplexml_load_string($resultado['data']);
+
+        if (isset($stockXML->stock_availables->stock_available)) {
+            foreach ($stockXML->stock_availables->stock_available as $stock) {
+                $idProd = (int)$stock->id_product;
+                $idAttr = (int)$stock->id_product_attribute;
+                $cantidad = (int)$stock->quantity;
+
+                $key = "p{$idProd}-a{$idAttr}";
+                $stockData[$key] = $cantidad;
+            }
+        }
+    } catch (Exception $e) {
+        registrarLog('ERROR', 'obtenerStockCombinaciones', "Error al parsear stock: {$e->getMessage()}");
+    }
+
+    return $stockData;
+}
+
+/**
+ * Obtener nombres de tallas desde product_option_values
+ */
+function obtenerNombresTallas($tallaIds) {
+    $nombres = [];
+
+    if (empty($tallaIds)) {
+        return $nombres;
+    }
+
+    // Filtrar solo IDs únicos
+    $tallaIds = array_unique($tallaIds);
+    $idsFilter = implode('|', $tallaIds);
+
+    $resultado = callPrestaShop("product_option_values?filter[id]=[$idsFilter]&display=full");
+
+    if ($resultado['code'] != 200) {
+        return $nombres;
+    }
+
+    try {
+        $valoresXML = simplexml_load_string($resultado['data']);
+
+        if (isset($valoresXML->product_option_values->product_option_value)) {
+            foreach ($valoresXML->product_option_values->product_option_value as $valor) {
+                $id = (int)$valor->id;
+                $idAttrGroup = (int)$valor->id_attribute_group;
+
+                // Solo procesar si es del grupo de atributos de TALLA
+                if (defined('SIZE_ATTRIBUTE_GROUP_ID') && $idAttrGroup == SIZE_ATTRIBUTE_GROUP_ID) {
+                    // Extraer nombre en el idioma configurado
+                    $nombre = '';
+                    if (isset($valor->name->language)) {
+                        foreach ($valor->name->language as $lang) {
+                            if ((int)$lang['id'] == PRESTASHOP_LANGUAGE_ID) {
+                                $nombre = (string)$lang;
+                                break;
+                            }
+                        }
+                        // Si no se encontró el idioma, usar el primero
+                        if (empty($nombre)) {
+                            $nombre = (string)$valor->name->language[0];
+                        }
+                    }
+
+                    $nombres[$id] = $nombre;
+                }
+            }
+        }
+    } catch (Exception $e) {
+        registrarLog('ERROR', 'obtenerNombresTallas', "Error al parsear tallas: {$e->getMessage()}");
+    }
+
+    return $nombres;
+}
+
+/**
  * Parsear XML de producto a array JSON-friendly
  */
 function parsearProducto($productXML) {
@@ -359,17 +533,30 @@ function parsearProducto($productXML) {
         }
     }
 
-    // Obtener stock
+    // Detectar si tiene combinaciones (tallas)
+    $tieneCombinaciones = isset($productXML->associations->combinations->combination);
+    $combinaciones = [];
     $stock = 0;
-    if (isset($productXML->associations->stock_availables->stock_available)) {
-        $stockInfo = $productXML->associations->stock_availables->stock_available;
-        $idStockAvailable = (int)$stockInfo->id;
 
-        // Consultar stock_available para obtener cantidad exacta
-        $resultadoStock = callPrestaShop("stock_availables/$idStockAvailable");
-        if ($resultadoStock['code'] == 200) {
-            $stockXML = simplexml_load_string($resultadoStock['data']);
-            $stock = (int)$stockXML->stock_available->quantity;
+    if ($tieneCombinaciones) {
+        // Producto con combinaciones (tallas)
+        $combinaciones = obtenerCombinaciones((int)$productXML->id, $productXML);
+        // Stock total = suma de stock de todas las combinaciones
+        foreach ($combinaciones as $combo) {
+            $stock += $combo['stock'];
+        }
+    } else {
+        // Producto estándar sin combinaciones
+        if (isset($productXML->associations->stock_availables->stock_available)) {
+            $stockInfo = $productXML->associations->stock_availables->stock_available;
+            $idStockAvailable = (int)$stockInfo->id;
+
+            // Consultar stock_available para obtener cantidad exacta
+            $resultadoStock = callPrestaShop("stock_availables/$idStockAvailable");
+            if ($resultadoStock['code'] == 200) {
+                $stockXML = simplexml_load_string($resultadoStock['data']);
+                $stock = (int)$stockXML->stock_available->quantity;
+            }
         }
     }
 
@@ -385,6 +572,8 @@ function parsearProducto($productXML) {
         'stock' => $stock,
         'activo' => (int)$productXML->active == 1,
         'url_imagen' => construirURLImagen((int)$productXML->id, $productXML),
+        'tiene_combinaciones' => $tieneCombinaciones,
+        'combinaciones' => $combinaciones,
         'fecha_consulta' => date('Y-m-d H:i:s')
     ];
 }

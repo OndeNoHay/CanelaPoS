@@ -3,14 +3,7 @@
  * ========================================================================
  * CONFIGURACIÓN DEL API BRIDGE - PRESTASHOP 8.1
  * ========================================================================
- *
- * IMPORTANTE:
- * 1. Renombrar este archivo a: api_config.php
- * 2. Completar los valores a continuación
- * 3. Subir a tu servidor por FTP
- * 4. ASEGURAR que este archivo NO sea accesible públicamente
- *    (usar .htaccess o permisos del servidor)
- *
+ * Versión corregida - 19/12/2025
  * ========================================================================
  */
 
@@ -18,17 +11,12 @@
 define('PRESTASHOP_API_URL', 'https://www.canelamoda.es/api/');
 
 // API Key de PrestaShop (32 caracteres)
-// Generar desde: PrestaShop Admin > Parámetros Avanzados > Webservice
-define('PRESTASHOP_API_KEY', 'TU_API_KEY_AQUI_32_CARACTERES');
+// IMPORTANTE: Reemplaza esto con tu API Key real
+define('PRESTASHOP_API_KEY', 'TU_API_KEY_DE_32_CARACTERES_AQUI');
 
 // Idioma por defecto para nombres de productos
 // 1 = Español (verificar en tu instalación de PrestaShop)
 define('PRESTASHOP_LANGUAGE_ID', 1);
-
-// ID del grupo de atributos para "Talla" (Size)
-// Este ID se usa para filtrar las combinaciones y mostrar solo las tallas
-// Consultar en: PrestaShop Admin > Catálogo > Atributos y Características
-define('SIZE_ATTRIBUTE_GROUP_ID', 5);
 
 // Timeout para peticiones a PrestaShop (segundos)
 define('API_TIMEOUT', 30);
@@ -57,26 +45,41 @@ if (basename($_SERVER['PHP_SELF']) == basename(__FILE__)) {
 }
 
 // ========================================================================
-// VERIFICACIÓN DE CONFIGURACIÓN
+// VERIFICACIÓN DE CONFIGURACIÓN - VERSIÓN CORREGIDA
 // ========================================================================
 function verificarConfiguracion() {
     $errores = [];
 
-    if (PRESTASHOP_API_KEY == 'TU_API_KEY_AQUI_32_CARACTERES') {
+    // Limpiar espacios en blanco de la API Key
+    $apiKey = defined('PRESTASHOP_API_KEY') ? trim(PRESTASHOP_API_KEY) : '';
+
+    // Verificar que no sea el valor por defecto
+    if (empty($apiKey) || $apiKey == 'TU_API_KEY_DE_32_CARACTERES_AQUI' || $apiKey == 'TU_API_KEY_AQUI_32_CARACTERES') {
         $errores[] = 'API Key no configurada';
     }
 
-    if (strlen(PRESTASHOP_API_KEY) != 32) {
-        $errores[] = 'API Key debe tener 32 caracteres';
+    // Verificar longitud de 32 caracteres
+    if (!empty($apiKey) && strlen($apiKey) != 32) {
+        $errores[] = 'API Key debe tener 32 caracteres (tiene ' . strlen($apiKey) . ')';
     }
 
-    if (DEBUG_MODE && !is_writable(dirname(LOG_FILE))) {
-        $errores[] = 'Directorio de log no tiene permisos de escritura';
+    // Verificar directorio de log si DEBUG_MODE está activado
+    if (DEBUG_MODE && defined('LOG_FILE')) {
+        $logDir = dirname(LOG_FILE);
+        if (!is_writable($logDir)) {
+            $errores[] = 'Directorio de log no tiene permisos de escritura: ' . $logDir;
+        }
     }
 
-    if (CACHE_TTL > 0 && !is_dir(CACHE_DIR)) {
-        if (!mkdir(CACHE_DIR, 0755, true)) {
-            $errores[] = 'No se pudo crear directorio de caché';
+    // Verificar directorio de caché
+    if (CACHE_TTL > 0 && defined('CACHE_DIR')) {
+        if (!is_dir(CACHE_DIR)) {
+            // Intentar crear el directorio
+            if (!@mkdir(CACHE_DIR, 0777, true)) {
+                $errores[] = 'No se pudo crear directorio de caché: ' . CACHE_DIR;
+            }
+        } elseif (!is_writable(CACHE_DIR)) {
+            $errores[] = 'Directorio de caché no tiene permisos de escritura: ' . CACHE_DIR;
         }
     }
 

@@ -26,6 +26,18 @@ Private DEBUG_MODE As Boolean
 Private Inicializado As Boolean
 
 '========================================================================
+' TIPO DE DATOS: COMBINACIÓN (TALLA) DE PRODUCTO PRESTASHOP
+'========================================================================
+Public Type CombinacionPS
+    IdCombinacion As Long
+    IdProductAttribute As Long
+    Talla As String
+    IdTalla As Long
+    Stock As Long
+    Disponible As Boolean
+End Type
+
+'========================================================================
 ' TIPO DE DATOS: PRODUCTO PRESTASHOP
 '========================================================================
 Public Type ProductoPS
@@ -42,6 +54,9 @@ Public Type ProductoPS
     URLImagen As String
     FechaConsulta As Date
     Encontrado As Boolean
+    TieneCombinaciones As Boolean
+    NumCombinaciones As Integer
+    Combinaciones(1 To 50) As CombinacionPS  ' Array para hasta 50 tallas
 End Type
 
 '========================================================================
@@ -349,6 +364,8 @@ Private Function ParsearProductoJSON(jsonStr As String) As ProductoPS
 
     Dim producto As ProductoPS
     producto.Encontrado = False
+    producto.TieneCombinaciones = False
+    producto.NumCombinaciones = 0
 
     ' Verificar si la respuesta es exitosa
     If InStr(jsonStr, """success"": true") = 0 And InStr(jsonStr, """success"":true") = 0 Then
@@ -357,23 +374,40 @@ Private Function ParsearProductoJSON(jsonStr As String) As ProductoPS
         Exit Function
     End If
 
+<<<<<<< Updated upstream
     ' Parsear campos manualmente (VB6 no tiene JSON nativo)
+=======
+    ' Parsear campos básicos manualmente (VB6 no tiene JSON nativo)
+>>>>>>> Stashed changes
     producto.ID = ConvertirALong(ExtraerValorJSON(jsonStr, "id", "number"))
     producto.Reference = ExtraerValorJSON(jsonStr, "reference", "string")
     producto.EAN13 = ExtraerValorJSON(jsonStr, "ean13", "string")
     producto.Nombre = ExtraerValorJSON(jsonStr, "nombre", "string")
     producto.Descripcion = ExtraerValorJSON(jsonStr, "descripcion", "string")
+<<<<<<< Updated upstream
 
     ' Convertir precios con manejo de errores
     producto.PrecioSinIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_sin_iva", "number"))
     producto.PrecioConIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_con_iva", "number"))
 
+=======
+    producto.PrecioSinIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_sin_iva", "number"))
+    producto.PrecioConIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_con_iva", "number"))
+>>>>>>> Stashed changes
     producto.IVA = ConvertirAInteger(ExtraerValorJSON(jsonStr, "iva", "number"))
     producto.Stock = ConvertirALong(ExtraerValorJSON(jsonStr, "stock", "number"))
     producto.Activo = (ExtraerValorJSON(jsonStr, "activo", "boolean") = "true")
     producto.URLImagen = ExtraerValorJSON(jsonStr, "url_imagen", "string")
     producto.FechaConsulta = Now
     producto.Encontrado = True
+
+    ' Verificar si tiene combinaciones (tallas)
+    producto.TieneCombinaciones = (ExtraerValorJSON(jsonStr, "tiene_combinaciones", "boolean") = "true")
+
+    ' Si tiene combinaciones, extraerlas
+    If producto.TieneCombinaciones Then
+        ParsearCombinacionesJSON jsonStr, producto
+    End If
 
     ParsearProductoJSON = producto
     Exit Function
@@ -467,6 +501,164 @@ Private Function ExtraerValorJSON(jsonStr As String, clave As String, tipo As St
 ErrorHandler:
     ExtraerValorJSON = ""
 End Function
+
+'========================================================================
+' FUNCIÓN: CONVERTIR A CURRENCY (MANEJO DE ERRORES Y FORMATO)
+'========================================================================
+
+Private Function ConvertirACurrency(valor As String) As Currency
+    On Error GoTo ErrorHandler
+
+    If valor = "" Or IsNull(valor) Then
+        ConvertirACurrency = 0
+        Exit Function
+    End If
+
+    ' Reemplazar punto por coma (formato español)
+    valor = Replace(valor, ".", ",")
+    ConvertirACurrency = CCur(valor)
+    Exit Function
+
+ErrorHandler:
+    If DEBUG_MODE Then Debug.Print "Error al convertir a Currency: " & valor
+    ConvertirACurrency = 0
+End Function
+
+'========================================================================
+' FUNCIÓN: CONVERTIR A LONG (MANEJO DE ERRORES)
+'========================================================================
+
+Private Function ConvertirALong(valor As String) As Long
+    On Error GoTo ErrorHandler
+
+    If valor = "" Or IsNull(valor) Then
+        ConvertirALong = 0
+        Exit Function
+    End If
+
+    ConvertirALong = CLng(valor)
+    Exit Function
+
+ErrorHandler:
+    If DEBUG_MODE Then Debug.Print "Error al convertir a Long: " & valor
+    ConvertirALong = 0
+End Function
+
+'========================================================================
+' FUNCIÓN: CONVERTIR A INTEGER (MANEJO DE ERRORES)
+'========================================================================
+
+Private Function ConvertirAInteger(valor As String) As Integer
+    On Error GoTo ErrorHandler
+
+    If valor = "" Or IsNull(valor) Then
+        ConvertirAInteger = 0
+        Exit Function
+    End If
+
+    ConvertirAInteger = CInt(valor)
+    Exit Function
+
+ErrorHandler:
+    If DEBUG_MODE Then Debug.Print "Error al convertir a Integer: " & valor
+    ConvertirAInteger = 0
+End Function
+
+'========================================================================
+' FUNCIÓN: PARSEAR COMBINACIONES (TALLAS) DEL JSON
+'========================================================================
+
+Private Sub ParsearCombinacionesJSON(jsonStr As String, ByRef producto As ProductoPS)
+    On Error GoTo ErrorHandler
+
+    Dim combinacionesArray As String
+    Dim posInicio As Long
+    Dim posFin As Long
+    Dim i As Integer
+    Dim posActual As Long
+    Dim combJSON As String
+
+    ' Buscar el array "combinaciones"
+    posInicio = InStr(jsonStr, """combinaciones"": [")
+    If posInicio = 0 Then
+        posInicio = InStr(jsonStr, """combinaciones"":[")
+    End If
+
+    If posInicio = 0 Then
+        Exit Sub
+    End If
+
+    ' Encontrar el inicio del array
+    posInicio = InStr(posInicio, jsonStr, "[")
+    posActual = posInicio + 1
+
+    ' Encontrar el fin del array
+    Dim nivelCorchetes As Integer
+    nivelCorchetes = 1
+    posFin = posActual
+
+    Do While nivelCorchetes > 0 And posFin < Len(jsonStr)
+        posFin = posFin + 1
+        If Mid(jsonStr, posFin, 1) = "[" Then nivelCorchetes = nivelCorchetes + 1
+        If Mid(jsonStr, posFin, 1) = "]" Then nivelCorchetes = nivelCorchetes - 1
+    Loop
+
+    ' Extraer el contenido del array
+    combinacionesArray = Mid(jsonStr, posInicio + 1, posFin - posInicio - 1)
+
+    ' Parsear cada combinación individual
+    i = 0
+    posActual = 1
+
+    Do While posActual < Len(combinacionesArray) And i < 50
+        ' Buscar siguiente objeto {
+        Dim posObjInicio As Long
+        Dim posObjFin As Long
+
+        posObjInicio = InStr(posActual, combinacionesArray, "{")
+        If posObjInicio = 0 Then Exit Do
+
+        ' Encontrar el cierre }
+        nivelCorchetes = 1
+        posObjFin = posObjInicio
+
+        Do While nivelCorchetes > 0 And posObjFin < Len(combinacionesArray)
+            posObjFin = posObjFin + 1
+            If Mid(combinacionesArray, posObjFin, 1) = "{" Then nivelCorchetes = nivelCorchetes + 1
+            If Mid(combinacionesArray, posObjFin, 1) = "}" Then nivelCorchetes = nivelCorchetes - 1
+        Loop
+
+        ' Extraer objeto de combinación
+        combJSON = Mid(combinacionesArray, posObjInicio, posObjFin - posObjInicio + 1)
+
+        ' Parsear esta combinación
+        i = i + 1
+        producto.Combinaciones(i).IdCombinacion = ConvertirALong(ExtraerValorJSON(combJSON, "id_combinacion", "number"))
+        producto.Combinaciones(i).IdProductAttribute = ConvertirALong(ExtraerValorJSON(combJSON, "id_product_attribute", "number"))
+        producto.Combinaciones(i).Talla = ExtraerValorJSON(combJSON, "talla", "string")
+        producto.Combinaciones(i).IdTalla = ConvertirALong(ExtraerValorJSON(combJSON, "id_talla", "number"))
+        producto.Combinaciones(i).Stock = ConvertirALong(ExtraerValorJSON(combJSON, "stock", "number"))
+        producto.Combinaciones(i).Disponible = (ExtraerValorJSON(combJSON, "disponible", "boolean") = "true")
+
+        posActual = posObjFin + 1
+    Loop
+
+    producto.NumCombinaciones = i
+
+    If DEBUG_MODE Then
+        Debug.Print "Combinaciones encontradas: " & producto.NumCombinaciones
+        Dim j As Integer
+        For j = 1 To producto.NumCombinaciones
+            Debug.Print "  Talla " & j & ": " & producto.Combinaciones(j).Talla & " (Stock: " & producto.Combinaciones(j).Stock & ")"
+        Next j
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    If DEBUG_MODE Then Debug.Print "Error al parsear combinaciones: " & Err.Description
+    producto.NumCombinaciones = 0
+End Sub
 
 '========================================================================
 ' FUNCIÓN: TEST DE CONEXIÓN CON API BRIDGE

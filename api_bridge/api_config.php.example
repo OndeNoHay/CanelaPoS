@@ -25,6 +25,11 @@ define('PRESTASHOP_API_KEY', 'TU_API_KEY_AQUI_32_CARACTERES');
 // 1 = Español (verificar en tu instalación de PrestaShop)
 define('PRESTASHOP_LANGUAGE_ID', 1);
 
+// ID del grupo de atributos para "Talla" (Size)
+// Este ID se usa para filtrar las combinaciones y mostrar solo las tallas
+// Consultar en: PrestaShop Admin > Catálogo > Atributos y Características
+define('SIZE_ATTRIBUTE_GROUP_ID', 5);
+
 // Timeout para peticiones a PrestaShop (segundos)
 define('API_TIMEOUT', 30);
 

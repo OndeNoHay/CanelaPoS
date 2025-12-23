@@ -358,15 +358,18 @@ Private Function ParsearProductoJSON(jsonStr As String) As ProductoPS
     End If
 
     ' Parsear campos manualmente (VB6 no tiene JSON nativo)
-    producto.ID = ExtraerValorJSON(jsonStr, "id", "number")
+    producto.ID = ConvertirALong(ExtraerValorJSON(jsonStr, "id", "number"))
     producto.Reference = ExtraerValorJSON(jsonStr, "reference", "string")
     producto.EAN13 = ExtraerValorJSON(jsonStr, "ean13", "string")
     producto.Nombre = ExtraerValorJSON(jsonStr, "nombre", "string")
     producto.Descripcion = ExtraerValorJSON(jsonStr, "descripcion", "string")
-    producto.PrecioSinIVA = CCur(ExtraerValorJSON(jsonStr, "precio_sin_iva", "number"))
-    producto.PrecioConIVA = CCur(ExtraerValorJSON(jsonStr, "precio_con_iva", "number"))
-    producto.IVA = CInt(ExtraerValorJSON(jsonStr, "iva", "number"))
-    producto.Stock = CLng(ExtraerValorJSON(jsonStr, "stock", "number"))
+
+    ' Convertir precios con manejo de errores
+    producto.PrecioSinIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_sin_iva", "number"))
+    producto.PrecioConIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_con_iva", "number"))
+
+    producto.IVA = ConvertirAInteger(ExtraerValorJSON(jsonStr, "iva", "number"))
+    producto.Stock = ConvertirALong(ExtraerValorJSON(jsonStr, "stock", "number"))
     producto.Activo = (ExtraerValorJSON(jsonStr, "activo", "boolean") = "true")
     producto.URLImagen = ExtraerValorJSON(jsonStr, "url_imagen", "string")
     producto.FechaConsulta = Now
@@ -588,4 +591,59 @@ Private Function URLEncode(texto As String) As String
     Next i
 
     URLEncode = resultado
+End Function
+
+'========================================================================
+' FUNCIONES AUXILIARES DE CONVERSIÓN
+'========================================================================
+
+Private Function ConvertirACurrency(valor As String) As Currency
+    On Error GoTo ErrorHandler
+
+    If valor = "" Or IsNull(valor) Then
+        ConvertirACurrency = 0
+        Exit Function
+    End If
+
+    ' Reemplazar punto por coma (formato español)
+    valor = Replace(valor, ".", ",")
+
+    ConvertirACurrency = CCur(valor)
+    Exit Function
+
+ErrorHandler:
+    If DEBUG_MODE Then Debug.Print "Error al convertir a Currency: " & valor & " - " & Err.Description
+    ConvertirACurrency = 0
+End Function
+
+Private Function ConvertirALong(valor As String) As Long
+    On Error GoTo ErrorHandler
+
+    If valor = "" Or IsNull(valor) Then
+        ConvertirALong = 0
+        Exit Function
+    End If
+
+    ConvertirALong = CLng(valor)
+    Exit Function
+
+ErrorHandler:
+    If DEBUG_MODE Then Debug.Print "Error al convertir a Long: " & valor & " - " & Err.Description
+    ConvertirALong = 0
+End Function
+
+Private Function ConvertirAInteger(valor As String) As Integer
+    On Error GoTo ErrorHandler
+
+    If valor = "" Or IsNull(valor) Then
+        ConvertirAInteger = 0
+        Exit Function
+    End If
+
+    ConvertirAInteger = CInt(valor)
+    Exit Function
+
+ErrorHandler:
+    If DEBUG_MODE Then Debug.Print "Error al convertir a Integer: " & valor & " - " & Err.Description
+    ConvertirAInteger = 0
 End Function

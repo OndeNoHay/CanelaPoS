@@ -1209,6 +1209,13 @@ Private Sub cmdarticulo_Click()
             mensaje = mensaje & "Stock disponible: " & ProductoPS.stock & vbCrLf & vbCrLf & vbCrLf & vbCrLf
             mensaje = mensaje & "Codigo: " & ProductoPS.Reference & vbCrLf
 
+            ' Mostrar datos del producto en los controles del formulario
+            On Error Resume Next
+            txtcodigo(1).Text = ProductoPS.Reference
+            txttipo(1).Text = ProductoPS.Nombre
+            txtprecio(1).Text = Format(ProductoPS.PrecioConIVA, "0,00")
+            On Error GoTo sehodio
+
             ' DEBUG: Mostrar info de combinaciones
             Debug.Print ">>> FRMVENTA: TieneCombinaciones=" & ProductoPS.TieneCombinaciones
             Debug.Print ">>> FRMVENTA: NumCombinaciones=" & ProductoPS.NumCombinaciones
@@ -1216,53 +1223,91 @@ Private Sub cmdarticulo_Click()
             ' Verificar si tiene combinaciones (tallas)
             If ProductoPS.TieneCombinaciones And ProductoPS.NumCombinaciones > 0 Then
                 Debug.Print ">>> FRMVENTA: Entrando a rama de combinaciones..."
-                mensaje = mensaje & vbCrLf & "TALLAS DISPONIBLES:" & vbCrLf
 
-                ' Construir lista de tallas
+                ' Limpiar y poblar ComboTallas con nombres de tallas
+                On Error Resume Next  ' Por si ComboTallas no existe
+                ComboTallas.Clear
+                On Error GoTo sehodio
+
                 Dim i As Integer
                 Dim tallasDisp As String
                 Dim tallasConStock As String
                 tallasDisp = ""
                 tallasConStock = ""
 
+                ' Poblar ComboBox y construir lista para mensaje
                 For i = 1 To ProductoPS.NumCombinaciones
                     Debug.Print ">>> Talla " & i & ": " & ProductoPS.Combinaciones(i).Talla & " - Stock: " & ProductoPS.Combinaciones(i).stock
-                    tallasDisp = tallasDisp & i & ". " & ProductoPS.Combinaciones(i).Talla
+
+                    ' Agregar al ComboBox (solo nombre de talla)
+                    On Error Resume Next
+                    ComboTallas.AddItem ProductoPS.Combinaciones(i).Talla
+                    On Error GoTo sehodio
+
+                    ' Construir mensaje
+                    tallasDisp = tallasDisp & ProductoPS.Combinaciones(i).Talla
                     tallasDisp = tallasDisp & " (Stock: " & ProductoPS.Combinaciones(i).stock & ")"
                     If ProductoPS.Combinaciones(i).stock > 0 Then
                         tallasDisp = tallasDisp & " ***DISPONIBLE***"
-                        tallasConStock = tallasConStock & i & ","
+                        If tallasConStock <> "" Then tallasConStock = tallasConStock & ", "
+                        tallasConStock = tallasConStock & ProductoPS.Combinaciones(i).Talla
                     Else
                         tallasDisp = tallasDisp & " [AGOTADA]"
                     End If
                     tallasDisp = tallasDisp & vbCrLf
                 Next i
 
-                mensaje = mensaje & vbCrLf & tallasDisp
+                ' Hacer visible el ComboBox
+                On Error Resume Next
+                ComboTallas.Visible = True
+                On Error GoTo sehodio
 
-                ' Mostrar info y pedir seleccion de talla
-                MsgBox mensaje, vbInformation, "Producto PrestaShop"
+                mensaje = mensaje & vbCrLf & "TALLAS:" & vbCrLf & tallasDisp
 
+                ' Mostrar info
+                MsgBox mensaje, vbInformation, "Producto con Tallas"
+
+                ' Pedir seleccion de talla (ahora puede escribir el nombre o verlo en el ComboBox)
                 Dim tallaSelec As String
-                tallaSelec = InputBox("Seleccione numero de talla (1-" & ProductoPS.NumCombinaciones & "):" & vbCrLf & "Tallas con stock: " & tallasConStock, "Seleccion de Talla")
+                tallaSelec = InputBox("Escriba el nombre de la talla:" & vbCrLf & vbCrLf & "Disponibles: " & tallasConStock & vbCrLf & vbCrLf & "(Tambien puede verlas en el ComboBox de la pantalla)", "Seleccion de Talla")
 
                 If tallaSelec = "" Then
+                    ' Ocultar ComboBox si cancela
+                    On Error Resume Next
+                    ComboTallas.Visible = False
+                    On Error GoTo sehodio
                     CodigoBusca = ""
                     Exit Sub
                 End If
 
-                Dim numTalla As Integer
-                numTalla = CInt(tallaSelec)
-
-                If numTalla < 1 Or numTalla > ProductoPS.NumCombinaciones Then
-                    MsgBox "N�mero de talla inv�lido", vbExclamation
-                    CodigoBusca = ""
-                    Exit Sub
-                End If
-
-                ' Obtener talla seleccionada
+                ' Buscar la combinacion por nombre de talla (no por numero)
                 Dim tallaNombre As String
-                tallaNombre = ProductoPS.Combinaciones(numTalla).Talla
+                Dim tallaEncontrada As Boolean
+                Dim stockTalla As Long
+                tallaNombre = Trim(UCase(tallaSelec))  ' Normalizar para buscar
+                tallaEncontrada = False
+
+                ' Buscar en las combinaciones del producto
+                For i = 1 To ProductoPS.NumCombinaciones
+                    If UCase(Trim(ProductoPS.Combinaciones(i).Talla)) = tallaNombre Then
+                        tallaNombre = ProductoPS.Combinaciones(i).Talla  ' Nombre original con mayus/minus correctas
+                        stockTalla = ProductoPS.Combinaciones(i).stock
+                        tallaEncontrada = True
+                        Debug.Print ">>> Talla encontrada: " & tallaNombre & " (Stock: " & stockTalla & ")"
+                        Exit For
+                    End If
+                Next i
+
+                If Not tallaEncontrada Then
+                    MsgBox "Talla '" & tallaSelec & "' no encontrada." & vbCrLf & "Disponibles: " & tallasConStock, vbExclamation
+                    CodigoBusca = ""
+                    Exit Sub
+                End If
+
+                ' Ocultar ComboBox ya que se selecciono una talla
+                On Error Resume Next
+                ComboTallas.Visible = False
+                On Error GoTo sehodio
 
                 ' Buscar en BD local por codigo Y talla
                 SqlArticulos = "Select idart, codigo, tipo, precioventa, color, talla, extra " _
@@ -1273,7 +1318,7 @@ Private Sub cmdarticulo_Click()
 
                 If RsArticulo.EOF Then
                     MsgBox "Talla '" & tallaNombre & "' no encontrada en base de datos local" & vbCrLf & _
-                           "Stock PrestaShop: " & ProductoPS.Combinaciones(numTalla).stock, vbExclamation
+                           "Stock PrestaShop: " & stockTalla, vbExclamation
                     CodigoBusca = ""
                     Exit Sub
                 End If

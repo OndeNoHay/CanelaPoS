@@ -265,6 +265,12 @@ End Function
 Private Sub GuardarEnCache(producto As ProductoPS)
     On Error GoTo ErrorHandler
 
+    ' NO cachear productos con combinaciones - siempre consultar API para datos actualizados
+    If producto.TieneCombinaciones Then
+        If DEBUG_MODE Then Debug.Print "Producto con combinaciones NO se guarda en cache (siempre consulta API)"
+        Exit Sub
+    End If
+
     Dim rs As Recordset
     Dim sql As String
 
@@ -299,10 +305,12 @@ Private Sub GuardarEnCache(producto As ProductoPS)
     rs.Close
     Set rs = Nothing
 
+    If DEBUG_MODE Then Debug.Print "Producto SIN combinaciones guardado en cache OK"
+
     Exit Sub
 
 ErrorHandler:
-    If DEBUG_MODE Then Debug.Print "Error al guardar en caché: " & Err.Description
+    If DEBUG_MODE Then Debug.Print "Error al guardar en cache: " & Err.Description
 End Sub
 
 '========================================================================

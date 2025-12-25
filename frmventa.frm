@@ -1216,6 +1216,13 @@ Private Sub cmdarticulo_Click()
             txtprecio(1).Text = Format(ProductoPS.PrecioConIVA, "0,00")
             On Error GoTo sehodio
 
+            ' Mostrar datos del producto en los controles del formulario
+            On Error Resume Next
+            txtcodigo(1).Text = productoPS.Reference
+            txttipo(1).Text = productoPS.Nombre
+            txtprecio(1).Text = Format(productoPS.PrecioConIVA, "0,00")
+            On Error GoTo sehodio
+
             ' DEBUG: Mostrar info de combinaciones
             Debug.Print ">>> FRMVENTA: TieneCombinaciones=" & ProductoPS.TieneCombinaciones
             Debug.Print ">>> FRMVENTA: NumCombinaciones=" & ProductoPS.NumCombinaciones

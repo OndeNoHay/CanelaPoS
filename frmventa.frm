@@ -1209,20 +1209,6 @@ Private Sub cmdarticulo_Click()
             mensaje = mensaje & "Stock disponible: " & ProductoPS.stock & vbCrLf & vbCrLf & vbCrLf & vbCrLf
             mensaje = mensaje & "Codigo: " & ProductoPS.Reference & vbCrLf
 
-            ' Mostrar datos del producto en los controles del formulario
-            On Error Resume Next
-            txtcodigo(1).Text = ProductoPS.Reference
-            txttipo(1).Text = ProductoPS.Nombre
-            txtprecio(1).Text = Format(ProductoPS.PrecioConIVA, "0,00")
-            On Error GoTo sehodio
-
-            ' Mostrar datos del producto en los controles del formulario
-            On Error Resume Next
-            txtcodigo(1).Text = productoPS.Reference
-            txttipo(1).Text = productoPS.Nombre
-            txtprecio(1).Text = Format(productoPS.PrecioConIVA, "0,00")
-            On Error GoTo sehodio
-
             ' DEBUG: Mostrar info de combinaciones
             Debug.Print ">>> FRMVENTA: TieneCombinaciones=" & ProductoPS.TieneCombinaciones
             Debug.Print ">>> FRMVENTA: NumCombinaciones=" & ProductoPS.NumCombinaciones
@@ -1274,9 +1260,29 @@ Private Sub cmdarticulo_Click()
                 ' Mostrar info
                 MsgBox mensaje, vbInformation, "Producto con Tallas"
 
-                ' Pedir seleccion de talla (ahora puede escribir el nombre o verlo en el ComboBox)
+                ' Dar foco al ComboBox para que el usuario seleccione
+                On Error Resume Next
+                ComboTallas.SetFocus
+                On Error GoTo sehodio
+
+                ' Esperar a que usuario seleccione talla del ComboBox
+                Dim respuesta As VbMsgBoxResult
+                respuesta = MsgBox("Seleccione la talla del ComboBox y haga clic en Aceptar" & vbCrLf & vbCrLf & "Tallas disponibles: " & tallasConStock, vbOKCancel, "Seleccione Talla")
+
+                If respuesta = vbCancel Then
+                    ' Ocultar ComboBox si cancela
+                    On Error Resume Next
+                    ComboTallas.Visible = False
+                    On Error GoTo sehodio
+                    CodigoBusca = ""
+                    Exit Sub
+                End If
+
+                ' Leer la talla seleccionada del ComboBox
                 Dim tallaSelec As String
-                tallaSelec = InputBox("Escriba el nombre de la talla:" & vbCrLf & vbCrLf & "Disponibles: " & tallasConStock & vbCrLf & vbCrLf & "(Tambien puede verlas en el ComboBox de la pantalla)", "Seleccion de Talla")
+                On Error Resume Next
+                tallaSelec = ComboTallas.Text
+                On Error GoTo sehodio
 
                 If tallaSelec = "" Then
                     ' Ocultar ComboBox si cancela

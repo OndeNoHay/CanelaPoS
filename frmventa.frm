@@ -1197,14 +1197,19 @@ Private Sub cmdarticulo_Click()
         If productoPS.Encontrado Then
             ' Producto encontrado en PrestaShop
             Dim mensaje As String
-            mensaje = "=== PRODUCTO PRESTASHOP ===" & vbCrLf & vbCrLf
-            mensaje = mensaje & "Nombre: " & productoPS.Nombre & vbCrLf
-            mensaje = mensaje & "Referencia: " & productoPS.Reference & vbCrLf
-            mensaje = mensaje & "Precio: " & Format(productoPS.PrecioConIVA, "0.00") & " �" & vbCrLf
-            mensaje = mensaje & "Stock total: " & productoPS.Stock & vbCrLf
+            mensaje = "Producto encontrado en PrestaShop:" & vbCrLf & vbCrLf & vbCrLf & vbCrLf
+            mensaje = mensaje & "Nombre: " & productoPS.Nombre & vbCrLf & vbCrLf
+            mensaje = mensaje & "Precio: " & Format(productoPS.PrecioConIVA, "0,00") & Chr(128) & vbCrLf & vbCrLf
+            mensaje = mensaje & "Stock disponible: " & productoPS.Stock & vbCrLf & vbCrLf & vbCrLf & vbCrLf
+            mensaje = mensaje & "Codigo: " & productoPS.Reference & vbCrLf
+
+            ' DEBUG: Mostrar info de combinaciones
+            Debug.Print ">>> FRMVENTA: TieneCombinaciones=" & productoPS.TieneCombinaciones
+            Debug.Print ">>> FRMVENTA: NumCombinaciones=" & productoPS.NumCombinaciones
 
             ' Verificar si tiene combinaciones (tallas)
             If productoPS.TieneCombinaciones And productoPS.NumCombinaciones > 0 Then
+                Debug.Print ">>> FRMVENTA: Entrando a rama de combinaciones..."
                 mensaje = mensaje & vbCrLf & "TALLAS DISPONIBLES:" & vbCrLf
 
                 ' Construir lista de tallas
@@ -1215,10 +1220,11 @@ Private Sub cmdarticulo_Click()
                 tallasConStock = ""
 
                 For i = 1 To productoPS.NumCombinaciones
+                    Debug.Print ">>> Talla " & i & ": " & productoPS.Combinaciones(i).Talla & " - Stock: " & productoPS.Combinaciones(i).Stock
                     tallasDisp = tallasDisp & i & ". " & productoPS.Combinaciones(i).Talla
                     tallasDisp = tallasDisp & " (Stock: " & productoPS.Combinaciones(i).Stock & ")"
                     If productoPS.Combinaciones(i).Stock > 0 Then
-                        tallasDisp = tallasDisp & " ���DISPONIBLE"
+                        tallasDisp = tallasDisp & " ***DISPONIBLE***"
                         tallasConStock = tallasConStock & i & ","
                     Else
                         tallasDisp = tallasDisp & " [AGOTADA]"
@@ -1226,13 +1232,13 @@ Private Sub cmdarticulo_Click()
                     tallasDisp = tallasDisp & vbCrLf
                 Next i
 
-                mensaje = mensaje & tallasDisp
+                mensaje = mensaje & vbCrLf & tallasDisp
 
-                ' Mostrar info y pedir selecci�n de talla
-                MsgBox mensaje, vbInformation, "PrestaShop - Producto con Tallas"
+                ' Mostrar info y pedir seleccion de talla
+                MsgBox mensaje, vbInformation, "Producto PrestaShop"
 
                 Dim tallaSelec As String
-                tallaSelec = InputBox("Seleccione n�mero de talla (1-" & productoPS.NumCombinaciones & "):" & vbCrLf & "Tallas con stock: " & tallasConStock, "Selecci�n de Talla")
+                tallaSelec = InputBox("Seleccione numero de talla (1-" & productoPS.NumCombinaciones & "):" & vbCrLf & "Tallas con stock: " & tallasConStock, "Seleccion de Talla")
 
                 If tallaSelec = "" Then
                     CodigoBusca = ""

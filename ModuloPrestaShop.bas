@@ -367,53 +367,104 @@ Private Function ParsearProductoJSON(jsonStr As String) As ProductoPS
     producto.TieneCombinaciones = False
     producto.NumCombinaciones = 0
 
+    ' DEBUG: Mostrar JSON completo recibido
+    If DEBUG_MODE Then
+        Debug.Print "========================================="
+        Debug.Print "JSON RECIBIDO (primeros 2000 chars):"
+        Debug.Print Left(jsonStr, 2000)
+        Debug.Print "========================================="
+    End If
+
     ' Verificar si la respuesta es exitosa
     If InStr(jsonStr, """success"": true") = 0 And InStr(jsonStr, """success"":true") = 0 Then
         ' Error en la respuesta
+        If DEBUG_MODE Then Debug.Print "ERROR: Respuesta no exitosa"
         ParsearProductoJSON = producto
         Exit Function
     End If
 
-<<<<<<< Updated upstream
-    ' Parsear campos manualmente (VB6 no tiene JSON nativo)
-=======
-    ' Parsear campos básicos manualmente (VB6 no tiene JSON nativo)
->>>>>>> Stashed changes
-    producto.ID = ConvertirALong(ExtraerValorJSON(jsonStr, "id", "number"))
-    producto.Reference = ExtraerValorJSON(jsonStr, "reference", "string")
-    producto.EAN13 = ExtraerValorJSON(jsonStr, "ean13", "string")
-    producto.Nombre = ExtraerValorJSON(jsonStr, "nombre", "string")
-    producto.Descripcion = ExtraerValorJSON(jsonStr, "descripcion", "string")
-<<<<<<< Updated upstream
+    ' Extraer el objeto "data" del JSON
+    Dim dataJSON As String
+    Dim posDataInicio As Long
+    Dim posDataFin As Long
 
-    ' Convertir precios con manejo de errores
-    producto.PrecioSinIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_sin_iva", "number"))
-    producto.PrecioConIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_con_iva", "number"))
+    ' Buscar "data": {
+    posDataInicio = InStr(jsonStr, """data"":")
+    If posDataInicio > 0 Then
+        ' Encontrar el inicio del objeto data
+        posDataInicio = InStr(posDataInicio, jsonStr, "{")
+        If posDataInicio > 0 Then
+            ' Encontrar el cierre del objeto data
+            Dim nivel As Integer
+            nivel = 1
+            posDataFin = posDataInicio
+            Do While nivel > 0 And posDataFin < Len(jsonStr)
+                posDataFin = posDataFin + 1
+                If Mid(jsonStr, posDataFin, 1) = "{" Then nivel = nivel + 1
+                If Mid(jsonStr, posDataFin, 1) = "}" Then nivel = nivel - 1
+            Loop
+            dataJSON = Mid(jsonStr, posDataInicio, posDataFin - posDataInicio + 1)
+            If DEBUG_MODE Then Debug.Print "Objeto 'data' extraido correctamente (" & Len(dataJSON) & " caracteres)"
+        End If
+    End If
 
-=======
-    producto.PrecioSinIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_sin_iva", "number"))
-    producto.PrecioConIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_con_iva", "number"))
->>>>>>> Stashed changes
-    producto.IVA = ConvertirAInteger(ExtraerValorJSON(jsonStr, "iva", "number"))
-    producto.Stock = ConvertirALong(ExtraerValorJSON(jsonStr, "stock", "number"))
-    producto.Activo = (ExtraerValorJSON(jsonStr, "activo", "boolean") = "true")
-    producto.URLImagen = ExtraerValorJSON(jsonStr, "url_imagen", "string")
+    ' Si no se encontro objeto data, usar el JSON completo
+    If dataJSON = "" Then
+        dataJSON = jsonStr
+        If DEBUG_MODE Then Debug.Print "ADVERTENCIA: No se encontro objeto 'data', usando JSON completo"
+    End If
+
+    ' Parsear campos basicos desde el objeto data
+    producto.ID = ConvertirALong(ExtraerValorJSON(dataJSON, "id", "number"))
+    producto.Reference = ExtraerValorJSON(dataJSON, "reference", "string")
+    producto.EAN13 = ExtraerValorJSON(dataJSON, "ean13", "string")
+    producto.Nombre = ExtraerValorJSON(dataJSON, "nombre", "string")
+    producto.Descripcion = ExtraerValorJSON(dataJSON, "descripcion", "string")
+    producto.PrecioSinIVA = ConvertirACurrency(ExtraerValorJSON(dataJSON, "precio_sin_iva", "number"))
+    producto.PrecioConIVA = ConvertirACurrency(ExtraerValorJSON(dataJSON, "precio_con_iva", "number"))
+    producto.IVA = ConvertirAInteger(ExtraerValorJSON(dataJSON, "iva", "number"))
+    producto.Stock = ConvertirALong(ExtraerValorJSON(dataJSON, "stock", "number"))
+    producto.Activo = (ExtraerValorJSON(dataJSON, "activo", "boolean") = "true")
+    producto.URLImagen = ExtraerValorJSON(dataJSON, "url_imagen", "string")
     producto.FechaConsulta = Now
     producto.Encontrado = True
 
-    ' Verificar si tiene combinaciones (tallas)
-    producto.TieneCombinaciones = (ExtraerValorJSON(jsonStr, "tiene_combinaciones", "boolean") = "true")
+    ' DEBUG: Mostrar campos parseados
+    If DEBUG_MODE Then
+        Debug.Print "Producto parseado OK:"
+        Debug.Print "  ID: " & producto.ID
+        Debug.Print "  Reference: " & producto.Reference
+        Debug.Print "  Nombre: " & producto.Nombre
+        Debug.Print "  Precio: " & producto.PrecioConIVA
+        Debug.Print "  Stock: " & producto.Stock
+    End If
 
-    ' Si tiene combinaciones, extraerlas
+    ' Verificar si tiene combinaciones (tallas) - buscar en dataJSON
+    Dim tieneCombStr As String
+    tieneCombStr = ExtraerValorJSON(dataJSON, "tiene_combinaciones", "boolean")
+
+    ' Aceptar tanto "true" como "1" o true sin comillas
+    producto.TieneCombinaciones = (tieneCombStr = "true" Or tieneCombStr = "1" Or tieneCombStr = "True")
+
+    If DEBUG_MODE Then
+        Debug.Print "  tiene_combinaciones (raw): '" & tieneCombStr & "'"
+        Debug.Print "  TieneCombinaciones (boolean): " & producto.TieneCombinaciones
+    End If
+
+    ' Si tiene combinaciones, extraerlas - pasar dataJSON en lugar de jsonStr completo
     If producto.TieneCombinaciones Then
-        ParsearCombinacionesJSON jsonStr, producto
+        If DEBUG_MODE Then Debug.Print ">>> Intentando parsear combinaciones desde objeto data..."
+        ParsearCombinacionesJSON dataJSON, producto
+        If DEBUG_MODE Then Debug.Print ">>> Combinaciones parseadas: " & producto.NumCombinaciones
+    Else
+        If DEBUG_MODE Then Debug.Print "Producto SIN combinaciones (estandar)"
     End If
 
     ParsearProductoJSON = producto
     Exit Function
 
 ErrorHandler:
-    If DEBUG_MODE Then Debug.Print "Error al parsear JSON: " & Err.Description
+    If DEBUG_MODE Then Debug.Print "ERROR CRITICO al parsear JSON: " & Err.Description
     producto.Encontrado = False
     ParsearProductoJSON = producto
 End Function
@@ -578,13 +629,18 @@ Private Sub ParsearCombinacionesJSON(jsonStr As String, ByRef producto As Produc
     Dim posActual As Long
     Dim combJSON As String
 
+    If DEBUG_MODE Then Debug.Print ">>> ParsearCombinacionesJSON: INICIO"
+
     ' Buscar el array "combinaciones"
     posInicio = InStr(jsonStr, """combinaciones"": [")
     If posInicio = 0 Then
         posInicio = InStr(jsonStr, """combinaciones"":[")
     End If
 
+    If DEBUG_MODE Then Debug.Print ">>> Array combinaciones encontrado en posicion: " & posInicio
+
     If posInicio = 0 Then
+        If DEBUG_MODE Then Debug.Print ">>> ERROR: No se encontro array 'combinaciones' en JSON"
         Exit Sub
     End If
 

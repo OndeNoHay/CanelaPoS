@@ -1,2 +1,4 @@
 *.ldb
 *.mdb
+api_config.php
+.gitignore

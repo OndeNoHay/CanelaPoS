@@ -33,7 +33,7 @@ Public Type CombinacionPS
     IdProductAttribute As Long
     Talla As String
     IdTalla As Long
-    Stock As Long
+    stock As Long
     Disponible As Boolean
 End Type
 
@@ -45,11 +45,11 @@ Public Type ProductoPS
     Reference As String
     EAN13 As String
     Nombre As String
-    Descripcion As String
+    descripcion As String
     PrecioSinIVA As Currency
     PrecioConIVA As Currency
     IVA As Integer
-    Stock As Long
+    stock As Long
     Activo As Boolean
     URLImagen As String
     FechaConsulta As Date
@@ -166,7 +166,7 @@ End Function
 ' FUNCIÓN: OBTENER STOCK DE PRODUCTO
 '========================================================================
 
-Public Function ObtenerStockProducto(IdProducto As Long) As Long
+Public Function ObtenerStockProducto(idProducto As Long) As Long
     On Error GoTo ErrorHandler
 
     ObtenerStockProducto = 0
@@ -180,7 +180,7 @@ Public Function ObtenerStockProducto(IdProducto As Long) As Long
 
     ' Construir URL
     Dim url As String
-    url = API_BRIDGE_URL & "?action=obtener_stock&id=" & IdProducto
+    url = API_BRIDGE_URL & "?action=obtener_stock&id=" & idProducto
 
     ' Hacer petición
     Dim respuestaJSON As String
@@ -196,7 +196,7 @@ Public Function ObtenerStockProducto(IdProducto As Long) As Long
 
     ObtenerStockProducto = stock
 
-    RegistrarLogSync "STOCK", IdProducto, "", "Stock obtenido: " & stock, respuestaJSON
+    RegistrarLogSync "STOCK", idProducto, "", "Stock obtenido: " & stock, respuestaJSON
 
     Exit Function
 
@@ -231,14 +231,14 @@ Private Function BuscarEnCache(Codigo As String) As ProductoPS
             If DateDiff("n", rs!UltimaConsulta, Now) < minutosCache Then
                 ' Caché válido, cargar datos
                 producto.ID = rs!IDProductoPS
-                producto.Reference = rs!Referencia & ""
+                producto.Reference = rs!referencia & ""
                 producto.EAN13 = rs!EAN13 & ""
                 producto.Nombre = rs!Nombre & ""
-                producto.Descripcion = rs!Descripcion & ""
+                producto.descripcion = rs!descripcion & ""
                 producto.PrecioSinIVA = rs!PrecioSinIVA
                 producto.PrecioConIVA = rs!PrecioConIVA
                 producto.IVA = rs!IVA
-                producto.Stock = rs!StockPS
+                producto.stock = rs!StockPS
                 producto.Activo = rs!Activo
                 producto.URLImagen = rs!URLImagen & ""
                 producto.FechaConsulta = rs!UltimaConsulta
@@ -282,14 +282,14 @@ Private Sub GuardarEnCache(producto As ProductoPS)
     End If
 
     ' Actualizar campos
-    rs!Referencia = producto.Reference
+    rs!referencia = producto.Reference
     rs!EAN13 = producto.EAN13
     rs!Nombre = producto.Nombre
-    rs!Descripcion = producto.Descripcion
+    rs!descripcion = producto.descripcion
     rs!PrecioSinIVA = producto.PrecioSinIVA
     rs!PrecioConIVA = producto.PrecioConIVA
     rs!IVA = producto.IVA
-    rs!StockPS = producto.Stock
+    rs!StockPS = producto.stock
     rs!Activo = producto.Activo
     rs!URLImagen = producto.URLImagen
     rs!UltimaConsulta = Now
@@ -367,104 +367,51 @@ Private Function ParsearProductoJSON(jsonStr As String) As ProductoPS
     producto.TieneCombinaciones = False
     producto.NumCombinaciones = 0
 
-    ' DEBUG: Mostrar JSON completo recibido
-    If DEBUG_MODE Then
-        Debug.Print "========================================="
-        Debug.Print "JSON RECIBIDO (primeros 2000 chars):"
-        Debug.Print Left(jsonStr, 2000)
-        Debug.Print "========================================="
-    End If
-
     ' Verificar si la respuesta es exitosa
     If InStr(jsonStr, """success"": true") = 0 And InStr(jsonStr, """success"":true") = 0 Then
         ' Error en la respuesta
-        If DEBUG_MODE Then Debug.Print "ERROR: Respuesta no exitosa"
         ParsearProductoJSON = producto
         Exit Function
     End If
 
-    ' Extraer el objeto "data" del JSON
-    Dim dataJSON As String
-    Dim posDataInicio As Long
-    Dim posDataFin As Long
 
-    ' Buscar "data": {
-    posDataInicio = InStr(jsonStr, """data"":")
-    If posDataInicio > 0 Then
-        ' Encontrar el inicio del objeto data
-        posDataInicio = InStr(posDataInicio, jsonStr, "{")
-        If posDataInicio > 0 Then
-            ' Encontrar el cierre del objeto data
-            Dim nivel As Integer
-            nivel = 1
-            posDataFin = posDataInicio
-            Do While nivel > 0 And posDataFin < Len(jsonStr)
-                posDataFin = posDataFin + 1
-                If Mid(jsonStr, posDataFin, 1) = "{" Then nivel = nivel + 1
-                If Mid(jsonStr, posDataFin, 1) = "}" Then nivel = nivel - 1
-            Loop
-            dataJSON = Mid(jsonStr, posDataInicio, posDataFin - posDataInicio + 1)
-            If DEBUG_MODE Then Debug.Print "Objeto 'data' extraido correctamente (" & Len(dataJSON) & " caracteres)"
-        End If
-    End If
+    ' Parsear campos manualmente (VB6 no tiene JSON nativo)
 
-    ' Si no se encontro objeto data, usar el JSON completo
-    If dataJSON = "" Then
-        dataJSON = jsonStr
-        If DEBUG_MODE Then Debug.Print "ADVERTENCIA: No se encontro objeto 'data', usando JSON completo"
-    End If
+    ' Parsear campos básicos manualmente (VB6 no tiene JSON nativo)
+  
+    producto.ID = ConvertirALong(ExtraerValorJSON(jsonStr, "id", "number"))
+    producto.Reference = ExtraerValorJSON(jsonStr, "reference", "string")
+    producto.EAN13 = ExtraerValorJSON(jsonStr, "ean13", "string")
+    producto.Nombre = ExtraerValorJSON(jsonStr, "nombre", "string")
+    producto.descripcion = ExtraerValorJSON(jsonStr, "descripcion", "string")
+  
 
-    ' Parsear campos basicos desde el objeto data
-    producto.ID = ConvertirALong(ExtraerValorJSON(dataJSON, "id", "number"))
-    producto.Reference = ExtraerValorJSON(dataJSON, "reference", "string")
-    producto.EAN13 = ExtraerValorJSON(dataJSON, "ean13", "string")
-    producto.Nombre = ExtraerValorJSON(dataJSON, "nombre", "string")
-    producto.Descripcion = ExtraerValorJSON(dataJSON, "descripcion", "string")
-    producto.PrecioSinIVA = ConvertirACurrency(ExtraerValorJSON(dataJSON, "precio_sin_iva", "number"))
-    producto.PrecioConIVA = ConvertirACurrency(ExtraerValorJSON(dataJSON, "precio_con_iva", "number"))
-    producto.IVA = ConvertirAInteger(ExtraerValorJSON(dataJSON, "iva", "number"))
-    producto.Stock = ConvertirALong(ExtraerValorJSON(dataJSON, "stock", "number"))
-    producto.Activo = (ExtraerValorJSON(dataJSON, "activo", "boolean") = "true")
-    producto.URLImagen = ExtraerValorJSON(dataJSON, "url_imagen", "string")
+    ' Convertir precios con manejo de errores
+  
+
+    producto.PrecioSinIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_sin_iva", "number"))
+    producto.PrecioConIVA = ConvertirACurrency(ExtraerValorJSON(jsonStr, "precio_con_iva", "number"))
+
+    producto.IVA = ConvertirAInteger(ExtraerValorJSON(jsonStr, "iva", "number"))
+    producto.stock = ConvertirALong(ExtraerValorJSON(jsonStr, "stock", "number"))
+    producto.Activo = (ExtraerValorJSON(jsonStr, "activo", "boolean") = "true")
+    producto.URLImagen = ExtraerValorJSON(jsonStr, "url_imagen", "string")
     producto.FechaConsulta = Now
     producto.Encontrado = True
 
-    ' DEBUG: Mostrar campos parseados
-    If DEBUG_MODE Then
-        Debug.Print "Producto parseado OK:"
-        Debug.Print "  ID: " & producto.ID
-        Debug.Print "  Reference: " & producto.Reference
-        Debug.Print "  Nombre: " & producto.Nombre
-        Debug.Print "  Precio: " & producto.PrecioConIVA
-        Debug.Print "  Stock: " & producto.Stock
-    End If
+    ' Verificar si tiene combinaciones (tallas)
+    producto.TieneCombinaciones = (ExtraerValorJSON(jsonStr, "tiene_combinaciones", "boolean") = "true")
 
-    ' Verificar si tiene combinaciones (tallas) - buscar en dataJSON
-    Dim tieneCombStr As String
-    tieneCombStr = ExtraerValorJSON(dataJSON, "tiene_combinaciones", "boolean")
-
-    ' Aceptar tanto "true" como "1" o true sin comillas
-    producto.TieneCombinaciones = (tieneCombStr = "true" Or tieneCombStr = "1" Or tieneCombStr = "True")
-
-    If DEBUG_MODE Then
-        Debug.Print "  tiene_combinaciones (raw): '" & tieneCombStr & "'"
-        Debug.Print "  TieneCombinaciones (boolean): " & producto.TieneCombinaciones
-    End If
-
-    ' Si tiene combinaciones, extraerlas - pasar dataJSON en lugar de jsonStr completo
+    ' Si tiene combinaciones, extraerlas
     If producto.TieneCombinaciones Then
-        If DEBUG_MODE Then Debug.Print ">>> Intentando parsear combinaciones desde objeto data..."
-        ParsearCombinacionesJSON dataJSON, producto
-        If DEBUG_MODE Then Debug.Print ">>> Combinaciones parseadas: " & producto.NumCombinaciones
-    Else
-        If DEBUG_MODE Then Debug.Print "Producto SIN combinaciones (estandar)"
+        ParsearCombinacionesJSON jsonStr, producto
     End If
 
     ParsearProductoJSON = producto
     Exit Function
 
 ErrorHandler:
-    If DEBUG_MODE Then Debug.Print "ERROR CRITICO al parsear JSON: " & Err.Description
+    If DEBUG_MODE Then Debug.Print "Error al parsear JSON: " & Err.Description
     producto.Encontrado = False
     ParsearProductoJSON = producto
 End Function
@@ -575,25 +522,7 @@ ErrorHandler:
     ConvertirACurrency = 0
 End Function
 
-'========================================================================
-' FUNCIÓN: CONVERTIR A LONG (MANEJO DE ERRORES)
-'========================================================================
 
-Private Function ConvertirALong(valor As String) As Long
-    On Error GoTo ErrorHandler
-
-    If valor = "" Or IsNull(valor) Then
-        ConvertirALong = 0
-        Exit Function
-    End If
-
-    ConvertirALong = CLng(valor)
-    Exit Function
-
-ErrorHandler:
-    If DEBUG_MODE Then Debug.Print "Error al convertir a Long: " & valor
-    ConvertirALong = 0
-End Function
 
 '========================================================================
 ' FUNCIÓN: CONVERTIR A INTEGER (MANEJO DE ERRORES)
@@ -629,18 +558,13 @@ Private Sub ParsearCombinacionesJSON(jsonStr As String, ByRef producto As Produc
     Dim posActual As Long
     Dim combJSON As String
 
-    If DEBUG_MODE Then Debug.Print ">>> ParsearCombinacionesJSON: INICIO"
-
     ' Buscar el array "combinaciones"
     posInicio = InStr(jsonStr, """combinaciones"": [")
     If posInicio = 0 Then
         posInicio = InStr(jsonStr, """combinaciones"":[")
     End If
 
-    If DEBUG_MODE Then Debug.Print ">>> Array combinaciones encontrado en posicion: " & posInicio
-
     If posInicio = 0 Then
-        If DEBUG_MODE Then Debug.Print ">>> ERROR: No se encontro array 'combinaciones' en JSON"
         Exit Sub
     End If
 
@@ -693,7 +617,7 @@ Private Sub ParsearCombinacionesJSON(jsonStr As String, ByRef producto As Produc
         producto.Combinaciones(i).IdProductAttribute = ConvertirALong(ExtraerValorJSON(combJSON, "id_product_attribute", "number"))
         producto.Combinaciones(i).Talla = ExtraerValorJSON(combJSON, "talla", "string")
         producto.Combinaciones(i).IdTalla = ConvertirALong(ExtraerValorJSON(combJSON, "id_talla", "number"))
-        producto.Combinaciones(i).Stock = ConvertirALong(ExtraerValorJSON(combJSON, "stock", "number"))
+        producto.Combinaciones(i).stock = ConvertirALong(ExtraerValorJSON(combJSON, "stock", "number"))
         producto.Combinaciones(i).Disponible = (ExtraerValorJSON(combJSON, "disponible", "boolean") = "true")
 
         posActual = posObjFin + 1
@@ -705,7 +629,7 @@ Private Sub ParsearCombinacionesJSON(jsonStr As String, ByRef producto As Produc
         Debug.Print "Combinaciones encontradas: " & producto.NumCombinaciones
         Dim j As Integer
         For j = 1 To producto.NumCombinaciones
-            Debug.Print "  Talla " & j & ": " & producto.Combinaciones(j).Talla & " (Stock: " & producto.Combinaciones(j).Stock & ")"
+            Debug.Print "  Talla " & j & ": " & producto.Combinaciones(j).Talla & " (Stock: " & producto.Combinaciones(j).stock & ")"
         Next j
     End If
 
@@ -766,7 +690,7 @@ Private Sub RegistrarLogSync(tipoOp As String, idProducto As Long, _
         If idProducto > 0 Then !IDProductoPS = idProducto
         If referencia <> "" Then !referencia = referencia
         !descripcion = descripcion
-        !RespuestaAPI = Left(respuestaAPI, 65000) ' Límite de Memo
+        !respuestaAPI = Left(respuestaAPI, 65000) ' Límite de Memo
         !CodigoHTTP = 200
         !UsuarioVB = Environ$("USERNAME")
         .Update
@@ -796,7 +720,7 @@ Private Function GetConfigValue(clave As String) As String
     Set rs = bdtienda.OpenRecordset(sql)
 
     If Not rs.EOF Then
-        GetConfigValue = rs!Valor & ""
+        GetConfigValue = rs!valor & ""
     Else
         GetConfigValue = ""
     End If
@@ -841,28 +765,6 @@ Private Function URLEncode(texto As String) As String
     URLEncode = resultado
 End Function
 
-'========================================================================
-' FUNCIONES AUXILIARES DE CONVERSIÓN
-'========================================================================
-
-Private Function ConvertirACurrency(valor As String) As Currency
-    On Error GoTo ErrorHandler
-
-    If valor = "" Or IsNull(valor) Then
-        ConvertirACurrency = 0
-        Exit Function
-    End If
-
-    ' Reemplazar punto por coma (formato español)
-    valor = Replace(valor, ".", ",")
-
-    ConvertirACurrency = CCur(valor)
-    Exit Function
-
-ErrorHandler:
-    If DEBUG_MODE Then Debug.Print "Error al convertir a Currency: " & valor & " - " & Err.Description
-    ConvertirACurrency = 0
-End Function
 
 Private Function ConvertirALong(valor As String) As Long
     On Error GoTo ErrorHandler
@@ -880,18 +782,3 @@ ErrorHandler:
     ConvertirALong = 0
 End Function
 
-Private Function ConvertirAInteger(valor As String) As Integer
-    On Error GoTo ErrorHandler
-
-    If valor = "" Or IsNull(valor) Then
-        ConvertirAInteger = 0
-        Exit Function
-    End If
-
-    ConvertirAInteger = CInt(valor)
-    Exit Function
-
-ErrorHandler:
-    If DEBUG_MODE Then Debug.Print "Error al convertir a Integer: " & valor & " - " & Err.Description
-    ConvertirAInteger = 0
-End Function

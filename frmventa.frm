@@ -1,5 +1,4 @@
 VERSION 5.00
-Object = "{648A5603-2C6E-101B-82B6-000000000014}#1.1#0"; "MSCOMM32.OCX"
 Object = "{86CF1D34-0C5F-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCT2.OCX"
 Begin VB.Form Venta 
    BackColor       =   &H00FF8080&
@@ -14,6 +13,14 @@ Begin VB.Form Venta
    ScaleHeight     =   8940
    ScaleWidth      =   12300
    WindowState     =   2  'Maximized
+   Begin VB.ComboBox ComboTallas 
+      Height          =   315
+      Left            =   5400
+      TabIndex        =   73
+      Text            =   "Combo1"
+      Top             =   2040
+      Width           =   615
+   End
    Begin VB.CommandButton CmdTicketRegalo 
       Caption         =   "Imprime el Ticket Regalo"
       Height          =   615
@@ -213,15 +220,14 @@ Begin VB.Form Venta
       Top             =   160
       Width           =   855
    End
-   Begin MSCommLib.MSComm Msc 
+   Begin VB.PictureBox Msc 
+      Height          =   480
       Left            =   9600
+      ScaleHeight     =   420
+      ScaleWidth      =   1140
+      TabIndex        =   72
       Top             =   1560
-      _ExtentX        =   1005
-      _ExtentY        =   1005
-      _Version        =   393216
-      DTREnable       =   -1  'True
-      NullDiscard     =   -1  'True
-      RTSEnable       =   -1  'True
+      Width           =   1200
    End
    Begin VB.CommandButton cmdventasxcliente 
       BackColor       =   &H00FFC0C0&
@@ -384,7 +390,7 @@ Begin VB.Form Venta
          _ExtentX        =   2566
          _ExtentY        =   661
          _Version        =   393216
-         Format          =   51838977
+         Format          =   144375809
          CurrentDate     =   38197
       End
       Begin VB.CommandButton cmdventa 
@@ -552,9 +558,9 @@ Begin VB.Form Venta
    Begin VB.TextBox txttalla 
       Height          =   375
       Index           =   1
-      Left            =   5400
+      Left            =   6720
       TabIndex        =   22
-      Top             =   2040
+      Top             =   1320
       Width           =   615
    End
    Begin VB.TextBox txtcolor 
@@ -1191,24 +1197,24 @@ Private Sub cmdarticulo_Click()
         ' ===================================================================
         ' FASE 1: BUSCAR EN PRESTASHOP PRIMERO
         ' ===================================================================
-        Dim productoPS As ProductoPS
-        productoPS = BuscarProductoPorCodigo(CodigoBusca)
+        Dim ProductoPS As ProductoPS
+        ProductoPS = BuscarProductoPorCodigo(CodigoBusca)
 
-        If productoPS.Encontrado Then
+        If ProductoPS.Encontrado Then
             ' Producto encontrado en PrestaShop
             Dim mensaje As String
             mensaje = "Producto encontrado en PrestaShop:" & vbCrLf & vbCrLf & vbCrLf & vbCrLf
-            mensaje = mensaje & "Nombre: " & productoPS.Nombre & vbCrLf & vbCrLf
-            mensaje = mensaje & "Precio: " & Format(productoPS.PrecioConIVA, "0,00") & Chr(128) & vbCrLf & vbCrLf
-            mensaje = mensaje & "Stock disponible: " & productoPS.Stock & vbCrLf & vbCrLf & vbCrLf & vbCrLf
-            mensaje = mensaje & "Codigo: " & productoPS.Reference & vbCrLf
+            mensaje = mensaje & "Nombre: " & ProductoPS.Nombre & vbCrLf & vbCrLf
+            mensaje = mensaje & "Precio: " & Format(ProductoPS.PrecioConIVA, "0,00") & Chr(128) & vbCrLf & vbCrLf
+            mensaje = mensaje & "Stock disponible: " & ProductoPS.stock & vbCrLf & vbCrLf & vbCrLf & vbCrLf
+            mensaje = mensaje & "Codigo: " & ProductoPS.Reference & vbCrLf
 
             ' DEBUG: Mostrar info de combinaciones
-            Debug.Print ">>> FRMVENTA: TieneCombinaciones=" & productoPS.TieneCombinaciones
-            Debug.Print ">>> FRMVENTA: NumCombinaciones=" & productoPS.NumCombinaciones
+            Debug.Print ">>> FRMVENTA: TieneCombinaciones=" & ProductoPS.TieneCombinaciones
+            Debug.Print ">>> FRMVENTA: NumCombinaciones=" & ProductoPS.NumCombinaciones
 
             ' Verificar si tiene combinaciones (tallas)
-            If productoPS.TieneCombinaciones And productoPS.NumCombinaciones > 0 Then
+            If ProductoPS.TieneCombinaciones And ProductoPS.NumCombinaciones > 0 Then
                 Debug.Print ">>> FRMVENTA: Entrando a rama de combinaciones..."
                 mensaje = mensaje & vbCrLf & "TALLAS DISPONIBLES:" & vbCrLf
 
@@ -1219,11 +1225,11 @@ Private Sub cmdarticulo_Click()
                 tallasDisp = ""
                 tallasConStock = ""
 
-                For i = 1 To productoPS.NumCombinaciones
-                    Debug.Print ">>> Talla " & i & ": " & productoPS.Combinaciones(i).Talla & " - Stock: " & productoPS.Combinaciones(i).Stock
-                    tallasDisp = tallasDisp & i & ". " & productoPS.Combinaciones(i).Talla
-                    tallasDisp = tallasDisp & " (Stock: " & productoPS.Combinaciones(i).Stock & ")"
-                    If productoPS.Combinaciones(i).Stock > 0 Then
+                For i = 1 To ProductoPS.NumCombinaciones
+                    Debug.Print ">>> Talla " & i & ": " & ProductoPS.Combinaciones(i).Talla & " - Stock: " & ProductoPS.Combinaciones(i).stock
+                    tallasDisp = tallasDisp & i & ". " & ProductoPS.Combinaciones(i).Talla
+                    tallasDisp = tallasDisp & " (Stock: " & ProductoPS.Combinaciones(i).stock & ")"
+                    If ProductoPS.Combinaciones(i).stock > 0 Then
                         tallasDisp = tallasDisp & " ***DISPONIBLE***"
                         tallasConStock = tallasConStock & i & ","
                     Else
@@ -1238,7 +1244,7 @@ Private Sub cmdarticulo_Click()
                 MsgBox mensaje, vbInformation, "Producto PrestaShop"
 
                 Dim tallaSelec As String
-                tallaSelec = InputBox("Seleccione numero de talla (1-" & productoPS.NumCombinaciones & "):" & vbCrLf & "Tallas con stock: " & tallasConStock, "Seleccion de Talla")
+                tallaSelec = InputBox("Seleccione numero de talla (1-" & ProductoPS.NumCombinaciones & "):" & vbCrLf & "Tallas con stock: " & tallasConStock, "Seleccion de Talla")
 
                 If tallaSelec = "" Then
                     CodigoBusca = ""
@@ -1248,7 +1254,7 @@ Private Sub cmdarticulo_Click()
                 Dim numTalla As Integer
                 numTalla = CInt(tallaSelec)
 
-                If numTalla < 1 Or numTalla > productoPS.NumCombinaciones Then
+                If numTalla < 1 Or numTalla > ProductoPS.NumCombinaciones Then
                     MsgBox "N�mero de talla inv�lido", vbExclamation
                     CodigoBusca = ""
                     Exit Sub
@@ -1256,18 +1262,18 @@ Private Sub cmdarticulo_Click()
 
                 ' Obtener talla seleccionada
                 Dim tallaNombre As String
-                tallaNombre = productoPS.Combinaciones(numTalla).Talla
+                tallaNombre = ProductoPS.Combinaciones(numTalla).Talla
 
                 ' Buscar en BD local por codigo Y talla
                 SqlArticulos = "Select idart, codigo, tipo, precioventa, color, talla, extra " _
                     & "from articulos where vendido = false and apartado = false and " _
-                    & "codigo = '" & productoPS.Reference & "' and talla = '" & tallaNombre & "'"
+                    & "codigo = '" & ProductoPS.Reference & "' and talla = '" & tallaNombre & "'"
 
                 Set RsArticulo = bdtienda.OpenRecordset(SqlArticulos)
 
                 If RsArticulo.EOF Then
                     MsgBox "Talla '" & tallaNombre & "' no encontrada en base de datos local" & vbCrLf & _
-                           "Stock PrestaShop: " & productoPS.Combinaciones(numTalla).Stock, vbExclamation
+                           "Stock PrestaShop: " & ProductoPS.Combinaciones(numTalla).stock, vbExclamation
                     CodigoBusca = ""
                     Exit Sub
                 End If
@@ -1285,7 +1291,7 @@ Private Sub cmdarticulo_Click()
                 ' Buscar en BD local por codigo
                 SqlArticulos = "Select idart, codigo, tipo, precioventa, color, talla, extra " _
                     & "from articulos where vendido = false and apartado = false and " _
-                    & "codigo = '" & productoPS.Reference & "'"
+                    & "codigo = '" & ProductoPS.Reference & "'"
 
                 Set RsArticulo = bdtienda.OpenRecordset(SqlArticulos)
 
@@ -1543,7 +1549,7 @@ Private Sub cmddevuelven_Click()
         dumresult = dumresult & !Idart
         dumresult = dumresult & Chr(13) & !Idart
         dumresult = dumresult & Chr(13) & !Codigo
-        dumresult = dumresult & Chr(13) & !Tipo
+        dumresult = dumresult & Chr(13) & !tipo
         dumresult = dumresult & Chr(13) & !PrecioVenta
         dumresult = dumresult & Chr(13) & !fechacompra
         dumresult = dumresult & Chr(13) & !fechaventa
@@ -1716,7 +1722,7 @@ hacecomentario = InputBox("�Desea anotar alg�n comentario?")
         ReDim Preserve Ticket(i)
         Ticket(i).Idart = txtidarticulo(i)
         Ticket(i).PrecioFinal = CCur(txtprefinal(i))
-        Ticket(i).Descripcion = txtcodigo(i)
+        Ticket(i).descripcion = txtcodigo(i)
         SumaX = SumaX + CCur(txtprefinal(i))
         Next i
         Header.fecha = FechaTrabajo
@@ -1860,7 +1866,7 @@ Private Sub MarcaVenta()
                     .Update
                     Ticket(i).Idart = txtidarticulo(i).Text
                     Ticket(i).PrecioFinal = CCur(txtprefinal(i).Text)
-                    Ticket(i).Descripcion = txttipo(i).Text '& " " & txtcodigo(i).Text
+                    Ticket(i).descripcion = txttipo(i).Text '& " " & txtcodigo(i).Text
                     '.Update
                  '   Ticket(i).Descuento = CCur(cmbdescu(i).Text)
                 End If
@@ -1952,10 +1958,10 @@ Public Sub PoneArticulos()
         With RsArticulo
         txtidarticulo(NumArtVend).Text = !Idart
         txtcodigo(NumArtVend).Text = "" & !Codigo
-        txttipo(NumArtVend).Text = "" & !Tipo
+        txttipo(NumArtVend).Text = "" & !tipo
         txtprecio(NumArtVend).Text = "" & !PrecioVenta
         txtcolor(NumArtVend).Text = "" & !Color
-        txttalla(NumArtVend).Text = "" & !talla
+        txttalla(NumArtVend).Text = "" & !Talla
         If cmbdescu(NumArtVend).Text <> "" Then
             txtprefinal(NumArtVend).Text = txtprecio(NumArtVend).Text * (1 - (cmbdescu(NumArtVend).Text * 100))
         Else
@@ -1988,19 +1994,19 @@ Public Sub PoneArticuloGenerico(ByVal Dumprecio As Currency)
         !PrecioVenta = Dumprecio
         !PrecioCompra = Dumprecio / 2
         If BlGoyse = True Then
-            !Tipo = Dumtipo
+            !tipo = Dumtipo
             !Codigo = GoyseCode
             BlGoyse = False
         Else
-            !Tipo = Dumtipo
+            !tipo = Dumtipo
             !Codigo = DumCode '"gen�rico"
         End If
         txtidarticulo(NumArtVend).Text = !Idart
         txtcodigo(NumArtVend).Text = DumCode '"" & !codigo
-        txttipo(NumArtVend).Text = "" & !Tipo
+        txttipo(NumArtVend).Text = "" & !tipo
         txtprecio(NumArtVend).Text = Dumprecio
         txtcolor(NumArtVend).Text = "" & !Color
-        txttalla(NumArtVend).Text = "" & !talla
+        txttalla(NumArtVend).Text = "" & !Talla
         If cmbdescu(NumArtVend).Text <> "" Then
             txtprefinal(NumArtVend).Text = txtprecio(NumArtVend).Text * (1 - (cmbdescu(NumArtVend).Text * 100))
         Else
@@ -2301,10 +2307,10 @@ Private Sub A�adeArticulosApartados()
         
           txtidarticulo(dummy).Text = !Idart
           txtcodigo(dummy).Text = "" & !Codigo
-          txttipo(dummy).Text = "" & !Tipo
+          txttipo(dummy).Text = "" & !tipo
           txtprecio(dummy).Text = PreFinalApart(dummy - 1)
           txtcolor(dummy).Text = "" & !Color
-          txttalla(dummy).Text = "" & !talla
+          txttalla(dummy).Text = "" & !Talla
           If cmbdescu(dummy).Text <> "" Then
               txtprefinal(dummy).Text = txtprecio(dummy).Text * (1 - (cmbdescu(dummy).Text * 100))
           Else
@@ -2312,7 +2318,7 @@ Private Sub A�adeArticulosApartados()
           End If
           ReDim Preserve Ticket(dummy)
           Ticket(dummy).Idart = !Idart
-          Ticket(dummy).Descripcion = !Tipo
+          Ticket(dummy).descripcion = !tipo
           Ticket(dummy).PrecioFinal = txtprefinal(dummy)
           .MoveNext
         Loop

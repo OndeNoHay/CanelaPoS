@@ -1255,11 +1255,6 @@ Private Sub cmdarticulo_Click()
                 ComboTallas.Visible = True
                 On Error GoTo sehodio
 
-                mensaje = mensaje & vbCrLf & "TALLAS:" & vbCrLf & tallasDisp
-
-                ' Mostrar info
-                MsgBox mensaje, vbInformation, "Producto con Tallas"
-
                 ' Dar foco al ComboBox para que el usuario seleccione
                 On Error Resume Next
                 ComboTallas.SetFocus
@@ -1267,7 +1262,10 @@ Private Sub cmdarticulo_Click()
 
                 ' Esperar a que usuario seleccione talla del ComboBox
                 Dim respuesta As VbMsgBoxResult
-                respuesta = MsgBox("Seleccione la talla del ComboBox y haga clic en Aceptar" & vbCrLf & vbCrLf & "Tallas disponibles: " & tallasConStock, vbOKCancel, "Seleccione Talla")
+                respuesta = MsgBox("PRODUCTO: " & ProductoPS.Nombre & vbCrLf & _
+                                   "PRECIO: " & Format(ProductoPS.PrecioConIVA, "0,00") & Chr(128) & vbCrLf & vbCrLf & _
+                                   "Seleccione la talla del ComboBox y presione Aceptar" & vbCrLf & _
+                                   "Disponibles: " & tallasConStock, vbOKCancel, "Seleccionar Talla")
 
                 If respuesta = vbCancel Then
                     ' Ocultar ComboBox si cancela
@@ -1365,9 +1363,18 @@ Private Sub cmdarticulo_Click()
         ' ===================================================================
         ' FASE 2: SI NO SE ENCONTR� EN PRESTASHOP, BUSCAR LOCALMENTE
         ' ===================================================================
-        SqlArticulos = "Select idart, codigo, tipo, precioventa, " _
-        & " color, talla, extra from articulos where vendido = false and apartado = false and" _
-        & " idart = " & CodigoBusca & " order by codigo"
+        ' Detectar si CodigoBusca es num�rico (ID) o texto (c�digo/referencia)
+        If IsNumeric(CodigoBusca) Then
+            ' Es num�rico: buscar por ID
+            SqlArticulos = "Select idart, codigo, tipo, precioventa, " _
+            & " color, talla, extra from articulos where vendido = false and apartado = false and" _
+            & " idart = " & CodigoBusca & " order by codigo"
+        Else
+            ' Es texto: buscar por c�digo/referencia
+            SqlArticulos = "Select idart, codigo, tipo, precioventa, " _
+            & " color, talla, extra from articulos where vendido = false and apartado = false and" _
+            & " codigo = '" & CodigoBusca & "' order by codigo"
+        End If
     Else: CodigoBusca = InputBox("Escriba alg�n dato para buscar")
         SqlArticulos = "Select idart, codigo, tipo, precioventa, color, talla, extra " _
         & "from articulos where vendido = false and apartado = false and(codigo " _
@@ -2203,8 +2210,9 @@ End Sub
 
 Private Sub TxtBusca_KeyPress(KeyAscii As Integer)
     If KeyAscii = 13 Then
-        If Len(txtbusca.Text) < 5 Then Exit Sub
-        CodigoBusca = Left(txtbusca.Text, 5)
+        If Len(txtbusca.Text) < 3 Then Exit Sub
+        ' Tomar el texto completo para b�squeda (c�digo de barras completo)
+        CodigoBusca = Trim(txtbusca.Text)
         cmdarticulo_Click
         txtbusca.Text = ""
         txtbusca.SelStart = 0

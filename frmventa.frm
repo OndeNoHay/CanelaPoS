@@ -1190,7 +1190,7 @@ Private Sub cmdarticulo_Click()
     If CodigoBusca = "" Then CodigoBusca = InputBox("Escriba el c�digo")
 
     If CodigoBusca <> "" Then
-        ' ===== INTEGRACI�N PRESTASHOP: Intentar buscar en PrestaShop primero =====
+        ' ===== INTEGRACION PRESTASHOP: Intentar buscar en PrestaShop primero =====
         idArtPrestaShop = BuscarProductoPrestaShop(CodigoBusca)
 
         If idArtPrestaShop <> 0 Then
@@ -1199,7 +1199,7 @@ Private Sub cmdarticulo_Click()
             & " color, talla, extra from articulos where " _
             & " idart = " & idArtPrestaShop & " order by codigo"
         Else
-            ' Si no est� en PrestaShop, buscar en BD local (comportamiento original)
+            ' Si no esta en PrestaShop, buscar en BD local (comportamiento original)
 '        SqlArticulos = "Select idart, idarticulo, codigo, tipo, precioventa, " _
 '        & " color, talla, extra from articulos where vendido = false and apartado = false and" _
 '        & " (idart = '" & CodigoBusca & "' or codigo like '*" & CodigoBusca & "*' or" _
@@ -1208,7 +1208,7 @@ Private Sub cmdarticulo_Click()
             & " color, talla, extra from articulos where vendido = false and apartado = false and" _
             & " idart = " & CodigoBusca & " order by codigo" ' or idart like '*" & CodigoBusca & "*' or codigo like '*" & CodigoBusca & "*' order by codigo"
         End If
-        ' ===== FIN INTEGRACI�N PRESTASHOP =====
+        ' ===== FIN INTEGRACION PRESTASHOP =====
 
 '        SqlArticulos = "Select idart, idarticulo, codigo, tipo, precioventa, vendido, color, talla " _
 '        & "from articulos where vendido = false and apartado = false and idart like " _
@@ -1240,9 +1240,9 @@ sehodio:
 End Sub
 
 Private Sub cmdBorrar_Click()
-    ' ===== INTEGRACI�N PRESTASHOP: Cancelar venta si hay art�culos PS =====
+    ' ===== INTEGRACION PRESTASHOP: Cancelar venta si hay articulos PS =====
     CancelarVenta
-    ' ===== FIN INTEGRACI�N PRESTASHOP =====
+    ' ===== FIN INTEGRACION PRESTASHOP =====
 
     txtnombre = ""
     txtapellidos = ""
@@ -1787,9 +1787,9 @@ Private Sub MarcaVenta()
 
     MarcaVendido
 
-    ' ===== INTEGRACI�N PRESTASHOP: Sincronizar stock despu�s de venta =====
+    ' ===== INTEGRACION PRESTASHOP: Sincronizar stock despues de venta =====
     SincronizarStockVendido
-    ' ===== FIN INTEGRACI�N PRESTASHOP =====
+    ' ===== FIN INTEGRACION PRESTASHOP =====
 
     CmbBorraArt_Click
     cmdBorrar_Click
@@ -1842,9 +1842,9 @@ End Sub
 Private Sub Form_Load()
     Dim i As Integer
 
-    ' ===== INTEGRACI�N PRESTASHOP: Inicializar sistema =====
+    ' ===== INTEGRACION PRESTASHOP: Inicializar sistema =====
     InicializarIntegracion
-    ' ===== FIN INTEGRACI�N PRESTASHOP =====
+    ' ===== FIN INTEGRACION PRESTASHOP =====
 
     NuevoCliente = True
     NumArtVend = 0

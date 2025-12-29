@@ -69,7 +69,7 @@ Public Function BuscarProductoPorCodigo(ByVal codigo As String) As ProductoPrest
     codigo = Trim(codigo)
 
     ' Construir URL para búsqueda
-    url = PS_API_BRIDGE_URL & "bridge.php?action=search&code=" & URLEncode(codigo)
+    url = PS_API_BRIDGE_URL & "bridge.php?action=buscar_producto&codigo=" & URLEncode(codigo)
 
     ' Log de la petición
     EscribirLog "Buscando producto: " & codigo
@@ -134,7 +134,7 @@ Public Function ObtenerStockProducto(ByVal idProducto As Long, Optional ByVal id
     stock = -1  ' Valor por defecto en caso de error
 
     ' Construir URL
-    url = PS_API_BRIDGE_URL & "bridge.php?action=stock&product_id=" & idProducto
+    url = PS_API_BRIDGE_URL & "bridge.php?action=obtener_stock&id=" & idProducto
     If idCombinacion > 0 Then
         url = url & "&combination_id=" & idCombinacion
     End If
@@ -196,18 +196,24 @@ Public Function ActualizarStock(ByVal idProducto As Long, ByVal cantidad As Long
         Exit Function
     End If
 
-    ' Construir URL
-    url = PS_API_BRIDGE_URL & "bridge.php?action=update_stock"
+    ' NOTA: El bridge.php actual (Fase 1) es SOLO LECTURA
+    ' La actualización de stock se implementará en Fase 2
+    ' Por ahora, registramos la operación en el log
+    EscribirLog "ADVERTENCIA: Actualización de stock aún no implementada en bridge.php"
+    EscribirLog "Producto: " & idProducto & ", Cantidad a decrementar: " & cantidad
 
-    ' Construir datos POST en formato JSON
-    postData = "{""product_id"":" & idProducto & "," & _
-               """quantity"":" & cantidad & "," & _
-               """operation"":""decrease"""
+    ' Marcar como éxito (simulado) para no bloquear ventas
+    resultado.Exito = True
+    resultado.StockAnterior = 0
+    resultado.StockNuevo = 0
+    resultado.MensajeError = "Actualización de stock pendiente de implementación"
 
-    If idCombinacion > 0 Then
-        postData = postData & ",""combination_id"":" & idCombinacion
-    End If
-    postData = postData & "}"
+    ActualizarStock = resultado
+    Exit Function
+
+    ' Código desactivado temporalmente (para Fase 2):
+    ' url = PS_API_BRIDGE_URL & "bridge.php?action=actualizar_stock"
+    ' postData = "{""id"":" & idProducto & ",""cantidad"":" & cantidad & "}"
 
     EscribirLog "Actualizando stock - Producto: " & idProducto & ", Cantidad: -" & cantidad
     EscribirLog "POST Data: " & postData
@@ -269,11 +275,8 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
 
         producto.Encontrado = True
 
-        ' Extraer ID del producto
-        producto.IdProducto = ExtraerValorNumerico(jsonText, "id_product")
-        If producto.IdProducto = 0 Then
-            producto.IdProducto = ExtraerValorNumerico(jsonText, "product_id")
-        End If
+        ' Extraer ID del producto (bridge.php usa "id")
+        producto.IdProducto = ExtraerValorNumerico(jsonText, "id")
 
         ' Extraer referencia
         producto.Referencia = ExtraerValorCadena(jsonText, "reference")
@@ -281,44 +284,42 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
         ' Extraer EAN
         producto.EAN = ExtraerValorCadena(jsonText, "ean13")
 
-        ' Extraer nombre
-        producto.Nombre = ExtraerValorCadena(jsonText, "name")
+        ' Extraer nombre (bridge.php usa "nombre")
+        producto.Nombre = ExtraerValorCadena(jsonText, "nombre")
 
-        ' Extraer descripción
-        producto.Descripcion = ExtraerValorCadena(jsonText, "description")
+        ' Extraer descripción (bridge.php usa "descripcion")
+        producto.Descripcion = ExtraerValorCadena(jsonText, "descripcion")
 
-        ' Extraer precios
-        producto.PrecioSinIVA = ExtraerValorMoneda(jsonText, "price")
-        producto.PrecioConIVA = ExtraerValorMoneda(jsonText, "price_with_tax")
+        ' Extraer precios (bridge.php usa "precio_sin_iva" y "precio_con_iva")
+        producto.PrecioSinIVA = ExtraerValorMoneda(jsonText, "precio_sin_iva")
+        producto.PrecioConIVA = ExtraerValorMoneda(jsonText, "precio_con_iva")
 
-        ' Si no viene price_with_tax, calcularlo
-        If producto.PrecioConIVA = 0 And producto.PrecioSinIVA > 0 Then
-            producto.PorcentajeIVA = ExtraerValorNumerico(jsonText, "tax_rate")
-            If producto.PorcentajeIVA = 0 Then producto.PorcentajeIVA = 21  ' IVA por defecto España
-            producto.PrecioConIVA = producto.PrecioSinIVA * (1 + producto.PorcentajeIVA / 100)
-        End If
+        ' Extraer IVA
+        producto.PorcentajeIVA = ExtraerValorNumerico(jsonText, "iva")
+        If producto.PorcentajeIVA = 0 Then producto.PorcentajeIVA = 21  ' Por defecto
 
-        ' Extraer stock
-        producto.StockDisponible = ExtraerValorNumerico(jsonText, "quantity")
-        If producto.StockDisponible = 0 Then
-            producto.StockDisponible = ExtraerValorNumerico(jsonText, "stock")
-        End If
+        ' Extraer stock (bridge.php usa "stock")
+        producto.StockDisponible = ExtraerValorNumerico(jsonText, "stock")
 
-        ' Verificar si tiene combinaciones
-        producto.TieneCombinaciones = (InStr(1, jsonText, """has_combinations"":true", vbTextCompare) > 0)
+        ' Verificar si tiene combinaciones (bridge.php usa "tiene_combinaciones")
+        producto.TieneCombinaciones = (InStr(1, jsonText, """tiene_combinaciones"":true", vbTextCompare) > 0)
 
-        ' Si tiene combinaciones, extraer ID de combinación
+        ' Si tiene combinaciones, extraer la primera combinación disponible
         If producto.TieneCombinaciones Then
-            producto.IdCombinacion = ExtraerValorNumerico(jsonText, "id_product_attribute")
-            If producto.IdCombinacion = 0 Then
-                producto.IdCombinacion = ExtraerValorNumerico(jsonText, "combination_id")
+            ' Buscar primera combinación en el array "combinaciones"
+            Dim posCombo As Long
+            posCombo = InStr(1, jsonText, """combinaciones"":[", vbTextCompare)
+            If posCombo > 0 Then
+                ' Extraer id_combinacion de la primera combinación
+                producto.IdCombinacion = ExtraerValorNumerico(Mid(jsonText, posCombo), "id_combinacion")
+                If producto.IdCombinacion = 0 Then
+                    producto.IdCombinacion = ExtraerValorNumerico(Mid(jsonText, posCombo), "id_product_attribute")
+                End If
             End If
         End If
 
-        ' Verificar si está activo
-        producto.Activo = (InStr(1, jsonText, """active"":""1""", vbTextCompare) > 0) Or _
-                         (InStr(1, jsonText, """active"":1", vbTextCompare) > 0) Or _
-                         (InStr(1, jsonText, """active"":true", vbTextCompare) > 0)
+        ' Verificar si está activo (bridge.php usa "activo")
+        producto.Activo = (InStr(1, jsonText, """activo"":true", vbTextCompare) > 0)
 
     Else
         ' Producto no encontrado
@@ -338,10 +339,8 @@ End Function
 Private Function ParsearStockJSON(ByVal jsonText As String) As Long
     Dim stock As Long
 
-    stock = ExtraerValorNumerico(jsonText, "quantity")
-    If stock = 0 Then
-        stock = ExtraerValorNumerico(jsonText, "stock")
-    End If
+    ' bridge.php usa "cantidad"
+    stock = ExtraerValorNumerico(jsonText, "cantidad")
 
     ParsearStockJSON = stock
 End Function

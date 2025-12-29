@@ -269,27 +269,44 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
 
     producto.Encontrado = False
 
-    ' Verificar si hay éxito en la respuesta (permitir espacios)
-    If InStr(1, jsonText, """success""", vbTextCompare) > 0 Then
-        ' Extraer valor de success
-        Dim posSuccess As Long
-        Dim valorSuccess As String
-        posSuccess = InStr(1, jsonText, """success""", vbTextCompare)
-        If posSuccess > 0 Then
-            valorSuccess = ExtraerValorCadena(Mid(jsonText, posSuccess - 1), "success")
-            If LCase(Trim(valorSuccess)) <> "true" Then
-                ' Success = false, salir
-                producto.MensajeError = ExtraerValorCadena(jsonText, "mensaje")
-                If producto.MensajeError = "" Then
-                    producto.MensajeError = ExtraerValorCadena(jsonText, "message")
+    ' Verificar si hay éxito en la respuesta
+    ' NOTA: "success" es un booleano (true/false) sin comillas en JSON
+    Dim posSuccess As Long
+    Dim posColon As Long
+    Dim esExitoso As Boolean
+
+    esExitoso = False
+    posSuccess = InStr(1, jsonText, """success""", vbTextCompare)
+    If posSuccess > 0 Then
+        ' Buscar los : después de "success"
+        posColon = InStr(posSuccess, jsonText, ":")
+        If posColon > 0 Then
+            ' Saltar espacios después de :
+            posColon = posColon + 1
+            Do While posColon <= Len(jsonText) And Mid(jsonText, posColon, 1) = " "
+                posColon = posColon + 1
+            Loop
+
+            ' Verificar si empieza con "true" (case insensitive)
+            If posColon + 3 <= Len(jsonText) Then
+                If LCase(Mid(jsonText, posColon, 4)) = "true" Then
+                    esExitoso = True
                 End If
-                If producto.MensajeError = "" Then
-                    producto.MensajeError = "Producto no encontrado"
-                End If
-                ParsearProductoJSON = producto
-                Exit Function
             End If
         End If
+    End If
+
+    ' Si success = false, extraer mensaje de error y salir
+    If Not esExitoso Then
+        producto.MensajeError = ExtraerValorCadena(jsonText, "mensaje")
+        If producto.MensajeError = "" Then
+            producto.MensajeError = ExtraerValorCadena(jsonText, "message")
+        End If
+        If producto.MensajeError = "" Then
+            producto.MensajeError = "Producto no encontrado"
+        End If
+        ParsearProductoJSON = producto
+        Exit Function
     End If
 
     ' Los datos están dentro de "data": {...}
@@ -363,13 +380,7 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
     producto.StockDisponible = ExtraerValorNumerico(dataContent, "stock")
 
     ' Verificar si tiene combinaciones (bridge.php usa "tiene_combinaciones")
-    producto.TieneCombinaciones = (InStr(1, dataContent, """tiene_combinaciones""", vbTextCompare) > 0)
-    If producto.TieneCombinaciones Then
-        ' Verificar el valor
-        Dim tieneCombosStr As String
-        tieneCombosStr = LCase(Trim(ExtraerValorCadena(dataContent, "tiene_combinaciones")))
-        producto.TieneCombinaciones = (tieneCombosStr = "true" Or tieneCombosStr = "1")
-    End If
+    producto.TieneCombinaciones = ExtraerValorBooleano(dataContent, "tiene_combinaciones")
 
     ' Si tiene combinaciones, extraer la primera combinación disponible
     If producto.TieneCombinaciones Then
@@ -386,9 +397,14 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
     End If
 
     ' Verificar si está activo (bridge.php usa "activo")
-    Dim activoStr As String
-    activoStr = LCase(Trim(ExtraerValorCadena(dataContent, "activo")))
-    producto.Activo = (activoStr = "true" Or activoStr = "1")
+    producto.Activo = ExtraerValorBooleano(dataContent, "activo")
+
+    ' DEBUG: Verificar que el producto se ha parseado correctamente
+    If ModoDebug Then
+        ModuloLog.EscribirLog "PARSER - Producto parseado: ID=" & producto.IdProducto & _
+            " | Nombre=" & producto.Nombre & " | Precio=" & producto.PrecioConIVA & _
+            " | Stock=" & producto.StockDisponible & " | Encontrado=" & producto.Encontrado, LOG_DEBUG
+    End If
 
     ParsearProductoJSON = producto
 End Function
@@ -543,6 +559,43 @@ Private Function ExtraerValorCadena(ByVal jsonText As String, ByVal campo As Str
     valor = Replace(valor, "\t", vbTab)
 
     ExtraerValorCadena = valor
+End Function
+
+'******************************************************************************
+'* FUNCIÓN: ExtraerValorBooleano
+'* PROPÓSITO: Extrae un valor booleano (true/false sin comillas) del JSON
+'******************************************************************************
+Private Function ExtraerValorBooleano(ByVal jsonText As String, ByVal campo As String) As Boolean
+    On Error Resume Next
+    Dim posInicio As Long
+    Dim posColon As Long
+
+    ExtraerValorBooleano = False
+
+    ' Buscar el campo
+    posInicio = InStr(1, jsonText, """" & campo & """:", vbTextCompare)
+    If posInicio = 0 Then
+        ' Buscar también con espacios: "campo" :
+        posInicio = InStr(1, jsonText, """" & campo & """", vbTextCompare)
+        If posInicio = 0 Then Exit Function
+    End If
+
+    ' Buscar los : después del campo
+    posColon = InStr(posInicio, jsonText, ":")
+    If posColon = 0 Then Exit Function
+
+    ' Saltar espacios después de :
+    posColon = posColon + 1
+    Do While posColon <= Len(jsonText) And Mid(jsonText, posColon, 1) = " "
+        posColon = posColon + 1
+    Loop
+
+    ' Verificar si empieza con "true" (case insensitive)
+    If posColon + 3 <= Len(jsonText) Then
+        If LCase(Mid(jsonText, posColon, 4)) = "true" Then
+            ExtraerValorBooleano = True
+        End If
+    End If
 End Function
 
 '******************************************************************************

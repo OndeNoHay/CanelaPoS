@@ -32,7 +32,7 @@ Begin VB.Form Venta
       Width           =   1095
    End
    Begin VB.CommandButton CmdImprimeTicket 
-      Caption         =   "Imprime el últimoTicket"
+      Caption         =   "Imprime el ï¿½ltimoTicket"
       Height          =   615
       Left            =   10080
       TabIndex        =   67
@@ -60,7 +60,7 @@ Begin VB.Form Venta
    End
    Begin VB.CommandButton cmdgenerico 
       BackColor       =   &H00FFC0C0&
-      Caption         =   "Artículo &Genérico"
+      Caption         =   "Artï¿½culo &Genï¿½rico"
       Height          =   855
       Left            =   120
       Style           =   1  'Graphical
@@ -245,7 +245,7 @@ Begin VB.Form Venta
    End
    Begin VB.CommandButton cmddevuelto 
       BackColor       =   &H00FFC0C0&
-      Caption         =   "Devolver  Artículos"
+      Caption         =   "Devolver  Artï¿½culos"
       Height          =   735
       Left            =   10320
       Style           =   1  'Graphical
@@ -275,7 +275,7 @@ Begin VB.Form Venta
       Width           =   3495
       Begin VB.CommandButton cmdprestamo 
          BackColor       =   &H00FFC0C0&
-         Caption         =   "Préstamo"
+         Caption         =   "Prï¿½stamo"
          Height          =   375
          Left            =   120
          Style           =   1  'Graphical
@@ -473,7 +473,7 @@ Begin VB.Form Venta
    End
    Begin VB.CommandButton CmbBorraArt 
       BackColor       =   &H00FFC0C0&
-      Caption         =   "Borrar &todos los Artículos"
+      Caption         =   "Borrar &todos los Artï¿½culos"
       Height          =   855
       Left            =   10320
       Style           =   1  'Graphical
@@ -509,9 +509,9 @@ Begin VB.Form Venta
       Top             =   720
       Width           =   855
    End
-   Begin VB.CommandButton cmdañadir 
+   Begin VB.CommandButton cmdaï¿½adir 
       BackColor       =   &H00FFC0C0&
-      Caption         =   "Añadir Datos de &Nuevo Cliente"
+      Caption         =   "Aï¿½adir Datos de &Nuevo Cliente"
       Height          =   495
       Left            =   10320
       Style           =   1  'Graphical
@@ -583,7 +583,7 @@ Begin VB.Form Venta
    End
    Begin VB.CommandButton cmdarticulo 
       BackColor       =   &H00FFC0C0&
-      Caption         =   "Buscar &Artículo"
+      Caption         =   "Buscar &Artï¿½culo"
       Height          =   855
       Left            =   120
       Style           =   1  'Graphical
@@ -693,7 +693,7 @@ Begin VB.Form Venta
    End
    Begin VB.Label Label13 
       BackColor       =   &H00FF8080&
-      Caption         =   "Cliente Número"
+      Caption         =   "Cliente Nï¿½mero"
       BeginProperty Font 
          Name            =   "MS Sans Serif"
          Size            =   9.75
@@ -754,7 +754,7 @@ Begin VB.Form Venta
       Alignment       =   2  'Center
       AutoSize        =   -1  'True
       BackColor       =   &H00FF8080&
-      Caption         =   "Idartículo"
+      Caption         =   "Idartï¿½culo"
       BeginProperty Font 
          Name            =   "MS Sans Serif"
          Size            =   9.75
@@ -859,7 +859,7 @@ Begin VB.Form Venta
       Alignment       =   2  'Center
       AutoSize        =   -1  'True
       BackColor       =   &H00FF8080&
-      Caption         =   "Código"
+      Caption         =   "Cï¿½digo"
       BeginProperty Font 
          Name            =   "MS Sans Serif"
          Size            =   9.75
@@ -885,7 +885,7 @@ Begin VB.Form Venta
    Begin VB.Label Label4 
       AutoSize        =   -1  'True
       BackColor       =   &H00FF8080&
-      Caption         =   "Dirección"
+      Caption         =   "Direcciï¿½n"
       BeginProperty Font 
          Name            =   "MS Sans Serif"
          Size            =   9.75
@@ -905,7 +905,7 @@ Begin VB.Form Venta
    Begin VB.Label Label3 
       AutoSize        =   -1  'True
       BackColor       =   &H00FF8080&
-      Caption         =   "Teléfono"
+      Caption         =   "Telï¿½fono"
       BeginProperty Font 
          Name            =   "MS Sans Serif"
          Size            =   9.75
@@ -1139,10 +1139,10 @@ Private Sub cmdactualiza_Click()
     
 End Sub
 
-Private Sub cmdañadir_Click()
+Private Sub cmdaï¿½adir_Click()
     Dim x
     If NuevoCliente = False Then
-        x = MsgBox("Debe borrar los campos de datos y" & Chr(13) & "añadir datos para el nuevo cliente", vbExclamation)
+        x = MsgBox("Debe borrar los campos de datos y" & Chr(13) & "aï¿½adir datos para el nuevo cliente", vbExclamation)
         Exit Sub
     End If
     If txtnombre = "" Then
@@ -1168,7 +1168,7 @@ Private Sub cmdañadir_Click()
         .MoveLast
         txtidcliente = !IdCliente
     End With
-    If MsgBox("Cliente Creado." & Chr(13) & "¿Desea añadir su foto?", vbYesNo) = vbYes Then
+    If MsgBox("Cliente Creado." & Chr(13) & "ï¿½Desea aï¿½adir su foto?", vbYesNo) = vbYes Then
         IdCliFoto = txtidcliente
         'FrmWebCam.Show
     End If
@@ -1184,24 +1184,37 @@ End Sub
 
 Private Sub cmdarticulo_Click()
   On Error GoTo sehodio
+    Dim idArtPrestaShop As Long
+
     ModoBusca = "articulos"
-    If CodigoBusca = "" Then CodigoBusca = InputBox("Escriba el código")
-    
+    If CodigoBusca = "" Then CodigoBusca = InputBox("Escriba el cï¿½digo")
+
     If CodigoBusca <> "" Then
+        ' ===== INTEGRACIï¿½N PRESTASHOP: Intentar buscar en PrestaShop primero =====
+        idArtPrestaShop = BuscarProductoPrestaShop(CodigoBusca)
+
+        If idArtPrestaShop <> 0 Then
+            ' Producto encontrado en PrestaShop y agregado a BD local
+            SqlArticulos = "Select idart, codigo, tipo, precioventa, " _
+            & " color, talla, extra from articulos where " _
+            & " idart = " & idArtPrestaShop & " order by codigo"
+        Else
+            ' Si no estï¿½ en PrestaShop, buscar en BD local (comportamiento original)
 '        SqlArticulos = "Select idart, idarticulo, codigo, tipo, precioventa, " _
 '        & " color, talla, extra from articulos where vendido = false and apartado = false and" _
 '        & " (idart = '" & CodigoBusca & "' or codigo like '*" & CodigoBusca & "*' or" _
 '        & " idarticulo like '*" & CodigoBusca & "*') order by codigo" ' or idart like '*" & CodigoBusca & "*' or codigo like '*" & CodigoBusca & "*' order by codigo"
-        SqlArticulos = "Select idart, codigo, tipo, precioventa, " _
-        & " color, talla, extra from articulos where vendido = false and apartado = false and" _
-        & " idart = " & CodigoBusca & " order by codigo" ' or idart like '*" & CodigoBusca & "*' or codigo like '*" & CodigoBusca & "*' order by codigo"
-
+            SqlArticulos = "Select idart, codigo, tipo, precioventa, " _
+            & " color, talla, extra from articulos where vendido = false and apartado = false and" _
+            & " idart = " & CodigoBusca & " order by codigo" ' or idart like '*" & CodigoBusca & "*' or codigo like '*" & CodigoBusca & "*' order by codigo"
+        End If
+        ' ===== FIN INTEGRACIï¿½N PRESTASHOP =====
 
 '        SqlArticulos = "Select idart, idarticulo, codigo, tipo, precioventa, vendido, color, talla " _
 '        & "from articulos where vendido = false and apartado = false and idart like " _
 '        & "'*" & CodigoBusca & "*' or codigo like '*" & CodigoBusca & "*' or idarticulo like " _
 '        & "'*" & CodigoBusca & "*' order by codigo" ' or idart like '*" & CodigoBusca & "*' or codigo like '*" & CodigoBusca & "*' order by codigo"
-    Else: CodigoBusca = InputBox("Escriba algún dato para buscar")
+    Else: CodigoBusca = InputBox("Escriba algï¿½n dato para buscar")
         SqlArticulos = "Select idart, codigo, tipo, precioventa, color, talla, extra " _
         & "from articulos where vendido = false and apartado = false and(codigo " _
         & "like '*" & CodigoBusca & "*' or precioventa like '*" & CodigoBusca & "*' or " _
@@ -1227,6 +1240,10 @@ sehodio:
 End Sub
 
 Private Sub cmdBorrar_Click()
+    ' ===== INTEGRACIï¿½N PRESTASHOP: Cancelar venta si hay artï¿½culos PS =====
+    CancelarVenta
+    ' ===== FIN INTEGRACIï¿½N PRESTASHOP =====
+
     txtnombre = ""
     txtapellidos = ""
     txttelefono = ""
@@ -1235,19 +1252,19 @@ Private Sub cmdBorrar_Click()
     txtfechanac = ""
     txtidcliente = ""
     txtentrega = ""
-    
+
     IdCliente = 0
     IdVenta = 0
     IdVentaApartado = 0
     Modo = "Venta"
-    
+
     NuevoCliente = True
     CmbBorraArt_Click
     If VentaApartado = False Then
         cmdarticulo.Enabled = True
         cmdgenerico.Enabled = True
     End If
-    
+
 End Sub
 
 Private Sub cmdBuscaCliente_Click()
@@ -1256,10 +1273,10 @@ Private Sub cmdBuscaCliente_Click()
 ModoBusca = "clientes"
     cmdapartado.Enabled = True
     
-    CodigoBusca = InputBox("Escriba el Código de Cliente, nombre o apellido")
+    CodigoBusca = InputBox("Escriba el Cï¿½digo de Cliente, nombre o apellido")
     If CodigoBusca <> "" Then
         SqlArticulos = "Select * from clientes where idcliente like '*" & CodigoBusca & "*' or nombre like '*" & CodigoBusca & "*' or apellidos like '*" & CodigoBusca & "*' order by idcliente"
-    Else: CodigoBusca = InputBox("Escriba algún dato para buscar")
+    Else: CodigoBusca = InputBox("Escriba algï¿½n dato para buscar")
         SqlArticulos = "Select * from clientes where telefono like '*" & CodigoBusca & "*' or direccion like '*" & CodigoBusca & "*' or fechanac like '*" & CodigoBusca & "*' order by idcliente"
     End If
     Set RsArticulo = bdtienda.OpenRecordset(SqlArticulos)
@@ -1281,7 +1298,7 @@ End Sub
 
 Private Sub cmdcobrar_Click()
 If NumArtVend <= 0 Then
-    MsgBox "No hay artículos a la venta"
+    MsgBox "No hay artï¿½culos a la venta"
     Exit Sub
 End If
      Header.ACuenta = 0
@@ -1307,8 +1324,8 @@ If chkPago.Value = 1 Then
         Header.FormaPago = "Tarjeta"
     End If
 End If
-    If MsgBox("Total a pagar " & Chr(13) & "Efectivo: " & SumaTotal - PagoTarjeta - Val(txtentrega) & "€" _
-        & Chr(13) & "Tarjeta: " & PagoTarjeta & "€", vbOKCancel, "ATENCIÓN") = vbCancel Then Exit Sub
+    If MsgBox("Total a pagar " & Chr(13) & "Efectivo: " & SumaTotal - PagoTarjeta - Val(txtentrega) & "ï¿½" _
+        & Chr(13) & "Tarjeta: " & PagoTarjeta & "ï¿½", vbOKCancel, "ATENCIï¿½N") = vbCancel Then Exit Sub
     
     Dim fechita As Date
     fechita = Format(FechaTrabajo, "Short Date")
@@ -1400,7 +1417,7 @@ Dim totaleuros As Currency
         .MoveLast
         Set RsDetal = bdtienda.OpenRecordset("select * from detalleventa where idventa = " & IdVenta)
             If RsDetal.EOF = True Then
-                xx = MsgBox("Atención, NO SE HA REALIZADO LA VENTA CORRECTAMENTE" & Chr(13) & "DEBE BORRAR LA VENTA " & !IdVenta & " E INTENTARLO DE NUEVO", vbCritical)
+                xx = MsgBox("Atenciï¿½n, NO SE HA REALIZADO LA VENTA CORRECTAMENTE" & Chr(13) & "DEBE BORRAR LA VENTA " & !IdVenta & " E INTENTARLO DE NUEVO", vbCritical)
             'Else
                 'MsgBox ("Venta realizada correctamente")
             End If
@@ -1419,7 +1436,7 @@ Private Sub cmdfecha_Click()
 '    FechaTrabajo = txtfecha
     Exit Sub
 sehodio:
-    MsgBox ("Fecha no válida o formato incorrecto")
+    MsgBox ("Fecha no vï¿½lida o formato incorrecto")
 End Sub
 
 Private Sub cmddevuelven_Click()
@@ -1429,14 +1446,14 @@ Private Sub cmddevuelven_Click()
     Dim tempidventa As Integer
     Dim importeventa As Currency
     On Error GoTo sehodio
-    idcodigo = InputBox("¿Código de la prenda?")
+    idcodigo = InputBox("ï¿½Cï¿½digo de la prenda?")
     Set rsbuscar = bdtienda.OpenRecordset("Select * from articulos where idart = " & idcodigo)
     If rsbuscar.EOF Then
-        MsgBox ("no se ha encontrado el artículo " & idcodigo)
+        MsgBox ("no se ha encontrado el artï¿½culo " & idcodigo)
         Exit Sub
     End If
     With rsbuscar
-        dumresult = "Artículo encontrado:" & Chr(13)
+        dumresult = "Artï¿½culo encontrado:" & Chr(13)
         dumresult = dumresult & !Idart
         dumresult = dumresult & Chr(13) & !Idart
         dumresult = dumresult & Chr(13) & !Codigo
@@ -1446,7 +1463,7 @@ Private Sub cmddevuelven_Click()
         dumresult = dumresult & Chr(13) & !fechaventa
         dumresult = dumresult & Chr(13) & !vendido
         MsgBox (dumresult)
-        If MsgBox("¿Desea dar el artículo " & idcodigo & " como devuelto?", vbYesNo) = vbYes Then
+        If MsgBox("ï¿½Desea dar el artï¿½culo " & idcodigo & " como devuelto?", vbYesNo) = vbYes Then
             .Edit
             !vendido = False
             .Update
@@ -1487,7 +1504,7 @@ Private Sub cmddevuelven_Click()
          .Update
         End If
     End With
-    If MsgBox("¿Desea hacer un vale de canje?", vbYesNo, "Vale") = vbYes Then
+    If MsgBox("ï¿½Desea hacer un vale de canje?", vbYesNo, "Vale") = vbYes Then
         HaceVale (importeventa)
     End If
     BlAlarmaQuitar = False
@@ -1498,7 +1515,7 @@ End Sub
 
 Private Sub cmdgenerico_Click()
     frmgenerico.Show 1
-'    dumresp = InputBox("Precio del artículo")
+'    dumresp = InputBox("Precio del artï¿½culo")
 
 End Sub
 
@@ -1521,17 +1538,17 @@ Else
 End If
 End Sub
 Private Sub cmdpagoextra_Click()
-If MsgBox("¿Desea añadir un pago extra?", vbYesNo) = vbYes Then
+If MsgBox("ï¿½Desea aï¿½adir un pago extra?", vbYesNo) = vbYes Then
      Modo = "Apartado"
     Dim x
     If NumArtVend = 0 Then
-        MsgBox ("No hay ningún artículo en la venta")
+        MsgBox ("No hay ningï¿½n artï¿½culo en la venta")
         Exit Sub
     End If
     If Modo = "Apartado" Then
         If txtentrega.Text = "" Or txtnombre.Text = "" Or txtpagoextra = "" Then
             x = MsgBox("Para apartar es necesario: " & Chr(13) _
-                & Chr(9) & "-Dar un nombre y teléfono" & Chr(13) _
+                & Chr(9) & "-Dar un nombre y telï¿½fono" & Chr(13) _
                 & Chr(9) & "-Hacer una entrega en efectivo," & Chr(13) _
                 & Chr(9) & "-O anotar un pago extra", vbCritical)
             Exit Sub
@@ -1568,10 +1585,10 @@ If MsgBox("¿Desea añadir un pago extra?", vbYesNo) = vbYes Then
         IdVenta = !IdVenta
         
         
-        MueveCaja IdVenta, FechaTrabajo, txtpagoextra, PagoTarjeta, , InputBox("¿Desea dal algún concepto a la entrada?")
-        x = MsgBox(Chr(9) & "Total pagado " & Chr(9) & !ACuenta & " €" & Chr(13) _
-            & Chr(9) & "Total por pagar " & Chr(9) & dummyx - !ACuenta & " €" & Chr(13) _
-            & Chr(13) & Chr(9) & "Suma Total     " & Chr(9) & dummyx & " €", vbCritical)
+        MueveCaja IdVenta, FechaTrabajo, txtpagoextra, PagoTarjeta, , InputBox("ï¿½Desea dal algï¿½n concepto a la entrada?")
+        x = MsgBox(Chr(9) & "Total pagado " & Chr(9) & !ACuenta & " ï¿½" & Chr(13) _
+            & Chr(9) & "Total por pagar " & Chr(9) & dummyx - !ACuenta & " ï¿½" & Chr(13) _
+            & Chr(13) & Chr(9) & "Suma Total     " & Chr(9) & dummyx & " ï¿½", vbCritical)
     End With
         
 
@@ -1590,15 +1607,15 @@ End Sub
 Private Sub cmdprestamo_Click()
 
 If IdCliente = 0 Then
-    MsgBox ("Debe seleccionar un cliente para préstamo")
+    MsgBox ("Debe seleccionar un cliente para prï¿½stamo")
     Exit Sub
 End If
 If NumArtVend = 0 Then
-    MsgBox ("Debe seleccionar algún artículo para préstamo")
+    MsgBox ("Debe seleccionar algï¿½n artï¿½culo para prï¿½stamo")
     Exit Sub
 End If
 Dim hacecomentario As String
-hacecomentario = InputBox("¿Desea anotar algún comentario?")
+hacecomentario = InputBox("ï¿½Desea anotar algï¿½n comentario?")
     Dim i As Integer
     Set RsPrestamo = bdtienda.OpenRecordset("prestamo")
     Dim SumaX As Currency
@@ -1646,7 +1663,7 @@ Private Sub MarcaVenta()
         If txtidcliente.Text <> "" Then IdCliente = txtidcliente
     End If
     If NumArtVend = 0 Then
-        MsgBox ("No hay ningún artículo en la venta")
+        MsgBox ("No hay ningï¿½n artï¿½culo en la venta")
         Exit Sub
     End If
     
@@ -1658,7 +1675,7 @@ Private Sub MarcaVenta()
         If txtentrega.Text = "" Or txtnombre.Text = "" Then
             x = MsgBox("Para apartar es necesario: " & Chr(13) _
                 & Chr(9) & "-Hacer una entrega en efectivo" & Chr(13) _
-                & Chr(9) & "-Dar un nombre y teléfono", vbCritical)
+                & Chr(9) & "-Dar un nombre y telï¿½fono", vbCritical)
             Exit Sub
         End If
     Else
@@ -1769,6 +1786,11 @@ Private Sub MarcaVenta()
     ComprobarVenta
 
     MarcaVendido
+
+    ' ===== INTEGRACIï¿½N PRESTASHOP: Sincronizar stock despuï¿½s de venta =====
+    SincronizarStockVendido
+    ' ===== FIN INTEGRACIï¿½N PRESTASHOP =====
+
     CmbBorraArt_Click
     cmdBorrar_Click
     txtentrega = ""
@@ -1798,7 +1820,7 @@ End Sub
 
 Private Sub Command1_Click()
 'Dim x
-If MsgBox("¿Desea salir?", vbYesNo) = vbYes Then
+If MsgBox("ï¿½Desea salir?", vbYesNo) = vbYes Then
     End
 End If
 End Sub
@@ -1819,6 +1841,11 @@ End Sub
 
 Private Sub Form_Load()
     Dim i As Integer
+
+    ' ===== INTEGRACIï¿½N PRESTASHOP: Inicializar sistema =====
+    InicializarIntegracion
+    ' ===== FIN INTEGRACIï¿½N PRESTASHOP =====
+
     NuevoCliente = True
     NumArtVend = 0
     Set rsdummy = bdtienda.OpenRecordset("pago")
@@ -1842,9 +1869,9 @@ Private Sub Form_Load()
 '    PoneArticulos
 End Sub
 Public Sub PoneArticulos()
-    If RsArticulo.EOF Then MsgBox ("no hay artículos")
+    If RsArticulo.EOF Then MsgBox ("no hay artï¿½culos")
     If NumArtVend > 1 Then
-        AñadeControlesArticulos
+        Aï¿½adeControlesArticulos
     End If
         With RsArticulo
         txtidarticulo(NumArtVend).Text = !Idart
@@ -1865,20 +1892,20 @@ End Sub
 Public Sub PoneArticuloGenerico(ByVal Dumprecio As Currency)
     Set RsArticulo = bdtienda.OpenRecordset("articulos")
     If Dumprecio = 0 Or Dumprecio > 500 Then
-        MsgBox ("Precio no válido. Inténtelo de nuevo")
+        MsgBox ("Precio no vï¿½lido. Intï¿½ntelo de nuevo")
         Exit Sub
     End If
     
-    'Dumtipo = InputBox("Tipo de artículo (traje, vestido, etc.)")
+    'Dumtipo = InputBox("Tipo de artï¿½culo (traje, vestido, etc.)")
     If Dumtipo = "" Then
-        MsgBox ("Debe indicar el tipo de artículo." & Chr(13) & "Artículo no añadido")
+        MsgBox ("Debe indicar el tipo de artï¿½culo." & Chr(13) & "Artï¿½culo no aï¿½adido")
         
         NumArtVend = NumArtVend - 1
         Exit Sub
     End If
-    'If RsArticulo.EOF Then MsgBox ("no hay artículos")
+    'If RsArticulo.EOF Then MsgBox ("no hay artï¿½culos")
     If NumArtVend > 1 Then
-        AñadeControlesArticulos
+        Aï¿½adeControlesArticulos
     End If
         With RsArticulo
         .AddNew
@@ -1890,7 +1917,7 @@ Public Sub PoneArticuloGenerico(ByVal Dumprecio As Currency)
             BlGoyse = False
         Else
             !Tipo = Dumtipo
-            !Codigo = DumCode '"genérico"
+            !Codigo = DumCode '"genï¿½rico"
         End If
         txtidarticulo(NumArtVend).Text = !Idart
         txtcodigo(NumArtVend).Text = DumCode '"" & !codigo
@@ -1928,7 +1955,7 @@ Public Sub PoneClientes()
 sehodio:
     Exit Sub
 End Sub
-Private Sub AñadeControlesArticulos()
+Private Sub Aï¿½adeControlesArticulos()
         Dim i As Integer
         Load txtidarticulo(NumArtVend)
         Load txtcodigo(NumArtVend)
@@ -2000,7 +2027,7 @@ Private Sub Timer1_Timer()
     fechita = Format(FechaTrabajo, "Short Date")
     If cuentahoras >= 5 Then
 '         If fechita <> Date Then
-'            If MsgBox("Está trabajando con fecha " & fechita & Chr(13) & "¿Desea cambiarla a la fecha de hoy?", vbYesNo) = vbYes Then
+'            If MsgBox("Estï¿½ trabajando con fecha " & fechita & Chr(13) & "ï¿½Desea cambiarla a la fecha de hoy?", vbYesNo) = vbYes Then
 '                FechaTrabajo = Now
 '                DTPicker1.Value = FechaTrabajo
 '                Timer2.Enabled = True
@@ -2125,7 +2152,7 @@ Public Sub BuscaVentaApartada()
         If ArtApartParaPagar <> 0 Then
         'If MsgBox("Tiene articulos apartados desde el " & Chr(13) _
             & Chr(9) & RsApartado!Fecha & Chr(13) _
-            & "¿Quiere pagarlos?", vbYesNo) = vbYes Then
+            & "ï¿½Quiere pagarlos?", vbYesNo) = vbYes Then
             Set RsApartado = bdtienda.OpenRecordset("select * from venta where" _
             & " idventa = " & ArtApartParaPagar & " and pagado = false")
             ArtApartParaPagar = 0
@@ -2133,7 +2160,7 @@ Public Sub BuscaVentaApartada()
             On Error GoTo sehodio
             Set RsDetalApartado = bdtienda.OpenRecordset("select idart, preciofinal from detalleventa where idventa like " & RsApartado!IdVenta & " order by idart")
             If RsDetalApartado.EOF = True Then
-                If MsgBox("La venta " & RsApartado!IdVenta & " no tiene artículos asociados." & Chr(13) & "¿Desea borrar esta venta?", vbOKCancel) = vbOK Then
+                If MsgBox("La venta " & RsApartado!IdVenta & " no tiene artï¿½culos asociados." & Chr(13) & "ï¿½Desea borrar esta venta?", vbOKCancel) = vbOK Then
                     
                     RsApartado.Delete
                     Exit Sub
@@ -2155,16 +2182,16 @@ Public Sub BuscaVentaApartada()
                 PreFinalApart(x) = RsDetalApartado!PrecioFinal
                 RsDetalApartado.MoveNext
             Next x
-            AñadeArticulosApartados
+            Aï¿½adeArticulosApartados
         End If
     End If
     Exit Sub
 sehodio:
-MsgBox ("No se han encontrado artículos de la venta " & RsApartado!IdVenta)
+MsgBox ("No se han encontrado artï¿½culos de la venta " & RsApartado!IdVenta)
 End Sub
 Private Sub borraventa(ByVal IdVentaApartado As Integer)
 End Sub
-Private Sub AñadeArticulosApartados()
+Private Sub Aï¿½adeArticulosApartados()
     cmdapartado.Enabled = False
     
     Dim dummy, x As Integer
@@ -2181,7 +2208,7 @@ Private Sub AñadeArticulosApartados()
     'MsgBox (dummystr)
     Set RsArtApartado = bdtienda.OpenRecordset(dummystr)
         If RsArtApartado.EOF = True Then
-            If MsgBox("La venta " & RsApartado!IdVenta & " no tiene artículos asociados." & Chr(13) & "¿Desea borrar esta venta?", vbOKCancel) = vbOK Then
+            If MsgBox("La venta " & RsApartado!IdVenta & " no tiene artï¿½culos asociados." & Chr(13) & "ï¿½Desea borrar esta venta?", vbOKCancel) = vbOK Then
                 
                 RsApartado.Delete
                 Exit Sub
@@ -2193,7 +2220,7 @@ Private Sub AñadeArticulosApartados()
           dummy = dummy + 1
           NumArtVend = dummy
           If dummy > 1 Then
-              AñadeControlesArticulos
+              Aï¿½adeControlesArticulos
           End If
         
           txtidarticulo(dummy).Text = !Idart

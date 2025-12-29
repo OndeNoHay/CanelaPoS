@@ -269,65 +269,126 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
 
     producto.Encontrado = False
 
-    ' Verificar si hay éxito en la respuesta
-    If InStr(1, jsonText, """success"":true", vbTextCompare) > 0 Or _
-       InStr(1, jsonText, """found"":true", vbTextCompare) > 0 Then
-
-        producto.Encontrado = True
-
-        ' Extraer ID del producto (bridge.php usa "id")
-        producto.IdProducto = ExtraerValorNumerico(jsonText, "id")
-
-        ' Extraer referencia
-        producto.Referencia = ExtraerValorCadena(jsonText, "reference")
-
-        ' Extraer EAN
-        producto.EAN = ExtraerValorCadena(jsonText, "ean13")
-
-        ' Extraer nombre (bridge.php usa "nombre")
-        producto.Nombre = ExtraerValorCadena(jsonText, "nombre")
-
-        ' Extraer descripción (bridge.php usa "descripcion")
-        producto.Descripcion = ExtraerValorCadena(jsonText, "descripcion")
-
-        ' Extraer precios (bridge.php usa "precio_sin_iva" y "precio_con_iva")
-        producto.PrecioSinIVA = ExtraerValorMoneda(jsonText, "precio_sin_iva")
-        producto.PrecioConIVA = ExtraerValorMoneda(jsonText, "precio_con_iva")
-
-        ' Extraer IVA
-        producto.PorcentajeIVA = ExtraerValorNumerico(jsonText, "iva")
-        If producto.PorcentajeIVA = 0 Then producto.PorcentajeIVA = 21  ' Por defecto
-
-        ' Extraer stock (bridge.php usa "stock")
-        producto.StockDisponible = ExtraerValorNumerico(jsonText, "stock")
-
-        ' Verificar si tiene combinaciones (bridge.php usa "tiene_combinaciones")
-        producto.TieneCombinaciones = (InStr(1, jsonText, """tiene_combinaciones"":true", vbTextCompare) > 0)
-
-        ' Si tiene combinaciones, extraer la primera combinación disponible
-        If producto.TieneCombinaciones Then
-            ' Buscar primera combinación en el array "combinaciones"
-            Dim posCombo As Long
-            posCombo = InStr(1, jsonText, """combinaciones"":[", vbTextCompare)
-            If posCombo > 0 Then
-                ' Extraer id_combinacion de la primera combinación
-                producto.IdCombinacion = ExtraerValorNumerico(Mid(jsonText, posCombo), "id_combinacion")
-                If producto.IdCombinacion = 0 Then
-                    producto.IdCombinacion = ExtraerValorNumerico(Mid(jsonText, posCombo), "id_product_attribute")
+    ' Verificar si hay éxito en la respuesta (permitir espacios)
+    If InStr(1, jsonText, """success""", vbTextCompare) > 0 Then
+        ' Extraer valor de success
+        Dim posSuccess As Long
+        Dim valorSuccess As String
+        posSuccess = InStr(1, jsonText, """success""", vbTextCompare)
+        If posSuccess > 0 Then
+            valorSuccess = ExtraerValorCadena(Mid(jsonText, posSuccess - 1), "success")
+            If LCase(Trim(valorSuccess)) <> "true" Then
+                ' Success = false, salir
+                producto.MensajeError = ExtraerValorCadena(jsonText, "mensaje")
+                If producto.MensajeError = "" Then
+                    producto.MensajeError = ExtraerValorCadena(jsonText, "message")
                 End If
+                If producto.MensajeError = "" Then
+                    producto.MensajeError = "Producto no encontrado"
+                End If
+                ParsearProductoJSON = producto
+                Exit Function
             End If
         End If
+    End If
 
-        ' Verificar si está activo (bridge.php usa "activo")
-        producto.Activo = (InStr(1, jsonText, """activo"":true", vbTextCompare) > 0)
+    ' Los datos están dentro de "data": {...}
+    ' Extraer el contenido de "data"
+    Dim dataContent As String
+    Dim posDataStart As Long
+    Dim posDataEnd As Long
 
+    posDataStart = InStr(1, jsonText, """data""", vbTextCompare)
+    If posDataStart > 0 Then
+        ' Buscar el { después de "data":
+        posDataStart = InStr(posDataStart, jsonText, "{")
+        If posDataStart > 0 Then
+            ' Encontrar el } correspondiente
+            Dim nivel As Integer
+            Dim i As Long
+            nivel = 1
+            posDataEnd = posDataStart
+            For i = posDataStart + 1 To Len(jsonText)
+                If Mid(jsonText, i, 1) = "{" Then nivel = nivel + 1
+                If Mid(jsonText, i, 1) = "}" Then nivel = nivel - 1
+                If nivel = 0 Then
+                    posDataEnd = i
+                    Exit For
+                End If
+            Next i
+
+            ' Extraer contenido de data
+            dataContent = Mid(jsonText, posDataStart, posDataEnd - posDataStart + 1)
+
+            ' Ahora parsear usando dataContent
+            producto.Encontrado = True
+        Else
+            ' No hay contenido en data
+            producto.MensajeError = "Respuesta sin datos"
+            ParsearProductoJSON = producto
+            Exit Function
+        End If
     Else
-        ' Producto no encontrado
-        producto.MensajeError = ExtraerValorCadena(jsonText, "message")
-        If producto.MensajeError = "" Then
-            producto.MensajeError = "Producto no encontrado"
+        ' No hay campo "data", intentar parsear directamente
+        dataContent = jsonText
+        producto.Encontrado = True
+    End If
+
+    ' Parsear campos usando dataContent
+
+    ' Extraer ID del producto (bridge.php usa "id")
+    producto.IdProducto = ExtraerValorNumerico(dataContent, "id")
+
+    ' Extraer referencia
+    producto.Referencia = ExtraerValorCadena(dataContent, "reference")
+
+    ' Extraer EAN
+    producto.EAN = ExtraerValorCadena(dataContent, "ean13")
+
+    ' Extraer nombre (bridge.php usa "nombre")
+    producto.Nombre = ExtraerValorCadena(dataContent, "nombre")
+
+    ' Extraer descripción (bridge.php usa "descripcion")
+    producto.Descripcion = ExtraerValorCadena(dataContent, "descripcion")
+
+    ' Extraer precios (bridge.php usa "precio_sin_iva" y "precio_con_iva")
+    producto.PrecioSinIVA = ExtraerValorMoneda(dataContent, "precio_sin_iva")
+    producto.PrecioConIVA = ExtraerValorMoneda(dataContent, "precio_con_iva")
+
+    ' Extraer IVA
+    producto.PorcentajeIVA = ExtraerValorNumerico(dataContent, "iva")
+    If producto.PorcentajeIVA = 0 Then producto.PorcentajeIVA = 21  ' Por defecto
+
+    ' Extraer stock (bridge.php usa "stock")
+    producto.StockDisponible = ExtraerValorNumerico(dataContent, "stock")
+
+    ' Verificar si tiene combinaciones (bridge.php usa "tiene_combinaciones")
+    producto.TieneCombinaciones = (InStr(1, dataContent, """tiene_combinaciones""", vbTextCompare) > 0)
+    If producto.TieneCombinaciones Then
+        ' Verificar el valor
+        Dim tieneCombosStr As String
+        tieneCombosStr = LCase(Trim(ExtraerValorCadena(dataContent, "tiene_combinaciones")))
+        producto.TieneCombinaciones = (tieneCombosStr = "true" Or tieneCombosStr = "1")
+    End If
+
+    ' Si tiene combinaciones, extraer la primera combinación disponible
+    If producto.TieneCombinaciones Then
+        ' Buscar primera combinación en el array "combinaciones"
+        Dim posCombo As Long
+        posCombo = InStr(1, dataContent, """combinaciones""", vbTextCompare)
+        If posCombo > 0 Then
+            ' Extraer id_combinacion de la primera combinación
+            producto.IdCombinacion = ExtraerValorNumerico(Mid(dataContent, posCombo), "id_combinacion")
+            If producto.IdCombinacion = 0 Then
+                producto.IdCombinacion = ExtraerValorNumerico(Mid(dataContent, posCombo), "id_product_attribute")
+            End If
         End If
     End If
+
+    ' Verificar si está activo (bridge.php usa "activo")
+    Dim activoStr As String
+    activoStr = LCase(Trim(ExtraerValorCadena(dataContent, "activo")))
+    producto.Activo = (activoStr = "true" Or activoStr = "1")
 
     ParsearProductoJSON = producto
 End Function

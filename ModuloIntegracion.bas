@@ -124,6 +124,8 @@ Private Function CrearArticuloDesdePrestaShop(producto As ProductoPrestaShop, co
         ' Datos del producto
         !codigo = codigo
         !tipo = Left(producto.Nombre, 50)  ' Nombre del producto (truncado a 50 chars)
+        !color = ""  ' Por defecto vacio
+        !talla = ""  ' Por defecto vacio
 
         ' Precios
         !PrecioVenta = producto.PrecioConIVA
@@ -158,11 +160,22 @@ Private Function CrearArticuloDesdePrestaShop(producto As ProductoPrestaShop, co
         !fechacompra = Date
 
         .Update
-
-        CrearArticuloDesdePrestaShop = nuevoIdArt
-
-        LogInfo "Artículo creado desde PrestaShop - ID Local: " & nuevoIdArt & " | ID PS: " & producto.IdProducto
     End With
+
+    ' Cerrar recordset de insercion
+    Rs.Close
+    Set Rs = Nothing
+
+    ' Verificar que el articulo se creo correctamente
+    Set Rs = bdtienda.OpenRecordset("SELECT idart FROM articulos WHERE idart = " & nuevoIdArt)
+    If Rs.EOF Then
+        LogError "CRITICO: Articulo no encontrado despues de .Update. ID: " & nuevoIdArt
+        CrearArticuloDesdePrestaShop = 0
+    Else
+        CrearArticuloDesdePrestaShop = nuevoIdArt
+        LogInfo "Artículo creado desde PrestaShop - ID Local: " & nuevoIdArt & " | ID PS: " & producto.IdProducto
+        LogDebug "Verificacion BD exitosa - Articulo existe con idart=" & Rs!Idart
+    End If
 
     Rs.Close
     Set Rs = Nothing

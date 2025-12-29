@@ -1195,7 +1195,10 @@ Private Sub cmdarticulo_Click()
             ' Producto encontrado en PrestaShop y agregado a BD local
             SqlArticulos = "Select idart, codigo, tipo, precioventa, " _
             & " color, talla, extra from articulos where " _
-            & " idart = " & idArtPrestaShop & " order by codigo"
+            & " idart = " & idArtPrestaShop
+
+            ' Log del SQL para debug
+            ModuloLog.LogDebug "SQL generado para PrestaShop: " & SqlArticulos
         Else
             ' Si no esta en PrestaShop, buscar en BD local (comportamiento original)
 '        SqlArticulos = "Select idart, idarticulo, codigo, tipo, precioventa, " _
@@ -1218,8 +1221,27 @@ Private Sub cmdarticulo_Click()
         & "like '*" & CodigoBusca & "*' or precioventa like '*" & CodigoBusca & "*' or " _
         & "talla like '*" & CodigoBusca & "*' or tipo like '*" & CodigoBusca & "*') order by codigo"
     End If
+
+    ' ===== INTEGRACION PRESTASHOP: Cerrar recordset antes de abrirlo =====
+    On Error Resume Next
+    If Not RsArticulo Is Nothing Then
+        If RsArticulo.State = 1 Then RsArticulo.Close
+    End If
+    On Error GoTo sehodio
+    ' ===== FIN INTEGRACION PRESTASHOP =====
+
     'MsgBox (SqlArticulos)
     Set RsArticulo = bdtienda.OpenRecordset(SqlArticulos)
+
+    ' ===== INTEGRACION PRESTASHOP: Log resultado de busqueda =====
+    If idArtPrestaShop <> 0 Then
+        If RsArticulo.EOF Then
+            ModuloLog.LogError "Articulo PS no encontrado en BD despues de crearlo. SQL: " & SqlArticulos
+        Else
+            ModuloLog.LogDebug "Articulo PS encontrado en BD. Records: " & RsArticulo.RecordCount
+        End If
+    End If
+    ' ===== FIN INTEGRACION PRESTASHOP =====
     If RsArticulo.EOF Then
         CodigoBusca = ""
         Exit Sub

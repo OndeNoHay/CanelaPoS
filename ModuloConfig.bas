@@ -5,7 +5,16 @@ Attribute VB_Name = "ModuloConfig"
 '* AUTOR: Claude Code
 '* FECHA: 2025-12-29
 '******************************************************************************
+'--- Declaraciones API de Windows ---
+Private Declare Function GetPrivateProfileString Lib "kernel32" Alias "GetPrivateProfileStringA" _
+    (ByVal lpApplicationName As String, ByVal lpKeyName As Any, ByVal lpDefault As String, _
+     ByVal lpReturnedString As String, ByVal nSize As Long, ByVal lpFileName As String) As Long
 
+Private Declare Function WritePrivateProfileString Lib "kernel32" Alias "WritePrivateProfileStringA" _
+    (ByVal lpApplicationName As String, ByVal lpKeyName As Any, ByVal lpString As Any, _
+     ByVal lpFileName As String) As Long
+     
+     
 Option Explicit
 
 '--- Estructura de configuración ---
@@ -15,7 +24,7 @@ Type ConfigPrestaShop
     ActualizarStockAutomatico As Boolean
     MostrarMensajesError As Boolean
     TimeoutSegundos As Integer
-    LogHabilitado As Boolean
+    logHabilitado As Boolean
     ModoDebug As Boolean
     URLAPIBridge As String
 End Type
@@ -44,7 +53,7 @@ Public Function CargarConfiguracion() As Boolean
     config.ActualizarStockAutomatico = True
     config.MostrarMensajesError = False  ' No molestar al usuario con errores de API
     config.TimeoutSegundos = 30
-    config.LogHabilitado = True
+    config.logHabilitado = True
     config.ModoDebug = False
     config.URLAPIBridge = "https://www.canelamoda.es/api_bridge/"
 
@@ -63,7 +72,7 @@ Public Function CargarConfiguracion() As Boolean
     config.ActualizarStockAutomatico = (LeerINI("General", "ActualizarStockAutomatico", "1") = "1")
     config.MostrarMensajesError = (LeerINI("General", "MostrarMensajesError", "0") = "1")
     config.TimeoutSegundos = CInt(Val(LeerINI("General", "TimeoutSegundos", "30")))
-    config.LogHabilitado = (LeerINI("General", "LogHabilitado", "1") = "1")
+    config.logHabilitado = (LeerINI("General", "LogHabilitado", "1") = "1")
     config.ModoDebug = (LeerINI("General", "ModoDebug", "0") = "1")
     config.URLAPIBridge = LeerINI("API", "URLBridge", "https://www.canelamoda.es/api_bridge/")
 
@@ -99,7 +108,7 @@ Public Sub GuardarConfiguracion()
     EscribirINI "General", "ActualizarStockAutomatico", IIf(config.ActualizarStockAutomatico, "1", "0")
     EscribirINI "General", "MostrarMensajesError", IIf(config.MostrarMensajesError, "1", "0")
     EscribirINI "General", "TimeoutSegundos", CStr(config.TimeoutSegundos)
-    EscribirINI "General", "LogHabilitado", IIf(config.LogHabilitado, "1", "0")
+    EscribirINI "General", "LogHabilitado", IIf(config.logHabilitado, "1", "0")
     EscribirINI "General", "ModoDebug", IIf(config.ModoDebug, "1", "0")
     EscribirINI "API", "URLBridge", config.URLAPIBridge
 
@@ -154,9 +163,9 @@ Public Function ActualizarStockAutomatico() As Boolean
     ActualizarStockAutomatico = config.ActualizarStockAutomatico
 End Function
 
-Public Function LogHabilitado() As Boolean
+Public Function logHabilitado() As Boolean
     If Not configCargada Then CargarConfiguracion
-    LogHabilitado = config.LogHabilitado
+    logHabilitado = config.logHabilitado
 End Function
 
 Public Function ModoDebug() As Boolean
@@ -173,14 +182,7 @@ End Function
 '* FUNCIONES DE LECTURA/ESCRITURA DE ARCHIVO INI
 '******************************************************************************
 
-'--- Declaraciones API de Windows ---
-Private Declare Function GetPrivateProfileString Lib "kernel32" Alias "GetPrivateProfileStringA" _
-    (ByVal lpApplicationName As String, ByVal lpKeyName As Any, ByVal lpDefault As String, _
-     ByVal lpReturnedString As String, ByVal nSize As Long, ByVal lpFileName As String) As Long
 
-Private Declare Function WritePrivateProfileString Lib "kernel32" Alias "WritePrivateProfileStringA" _
-    (ByVal lpApplicationName As String, ByVal lpKeyName As Any, ByVal lpString As Any, _
-     ByVal lpFileName As String) As Long
 
 '******************************************************************************
 '* FUNCIÓN: LeerINI
@@ -290,7 +292,7 @@ Public Sub MostrarConfiguracion()
     msg = msg & "Actualizar stock auto: " & IIf(config.ActualizarStockAutomatico, "SÍ", "NO") & vbCrLf
     msg = msg & "Mostrar errores: " & IIf(config.MostrarMensajesError, "SÍ", "NO") & vbCrLf
     msg = msg & "Timeout: " & config.TimeoutSegundos & " seg" & vbCrLf
-    msg = msg & "Log habilitado: " & IIf(config.LogHabilitado, "SÍ", "NO") & vbCrLf
+    msg = msg & "Log habilitado: " & IIf(config.logHabilitado, "SÍ", "NO") & vbCrLf
     msg = msg & "Modo debug: " & IIf(config.ModoDebug, "SÍ", "NO") & vbCrLf
     msg = msg & vbCrLf & "URL API Bridge:" & vbCrLf & config.URLAPIBridge & vbCrLf
     msg = msg & vbCrLf & "Archivo config:" & vbCrLf & archivoINI

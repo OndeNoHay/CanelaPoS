@@ -590,8 +590,8 @@ numartic = InputBox("Escriba el número del artículo para eliminar")
 If numartic = 0 Then Exit Sub
 Set rselimina = bdtienda.OpenRecordset("select * from articulos where idart = " & numartic)
 dummy = "desea eliminar el artículo" & Chr(13)
-dummy = dummy & "número: " & Chr(9) & rselimina!Idart
-dummy = dummy & Chr(13) & "tipo: " & Chr(9) & rselimina!Tipo
+dummy = dummy & "número: " & Chr(9) & rselimina!idArt
+dummy = dummy & Chr(13) & "tipo: " & Chr(9) & rselimina!tipo
 dummy = dummy & Chr(13) & "precio: " & Chr(9) & rselimina!PrecioVenta
 dummy = dummy & Chr(13) & "vendido: " & Chr(9) & rselimina!vendido
 
@@ -938,6 +938,17 @@ Private Sub Form_Load()
     
     Set bdtienda = OpenDatabase(App.Path & "\canela.mdb")
     FechaTrabajo = HaceFecha(Now)
+    
+    ' ========== NUEVO: Inicializar módulo PrestaShop ==========
+'    If InicializarModuloPS() Then
+'        ' Opcional: mostrar mensaje de éxito
+'        Debug.Print "? Conectado con PrestaShop"
+'    Else
+'        MsgBox "Advertencia: No se pudo conectar con PrestaShop" & vbCrLf & _
+'               "El sistema funcionará solo con datos locales", vbExclamation, "Modo Offline"
+'    End If
+    ' ==========================================================
+    
     BuscarPrestados
     BuscarApartados
     BlAlarmaQuitar = True

@@ -1225,7 +1225,8 @@ Private Sub cmdarticulo_Click()
     ' ===== INTEGRACION PRESTASHOP: Cerrar recordset antes de abrirlo =====
     On Error Resume Next
     If Not RsArticulo Is Nothing Then
-        If RsArticulo.State = 1 Then RsArticulo.Close
+        RsArticulo.Close
+        Set RsArticulo = Nothing
     End If
     On Error GoTo sehodio
     ' ===== FIN INTEGRACION PRESTASHOP =====
@@ -1238,7 +1239,10 @@ Private Sub cmdarticulo_Click()
         If RsArticulo.EOF Then
             ModuloLog.LogError "Articulo PS no encontrado en BD despues de crearlo. SQL: " & SqlArticulos
         Else
+            RsArticulo.MoveLast
+            RsArticulo.MoveFirst
             ModuloLog.LogDebug "Articulo PS encontrado en BD. Records: " & RsArticulo.RecordCount
+            ModuloLog.LogDebug "Datos articulo - idart: " & RsArticulo!Idart & " | tipo: " & RsArticulo!tipo & " | precio: " & RsArticulo!PrecioVenta
         End If
     End If
     ' ===== FIN INTEGRACION PRESTASHOP =====
@@ -1247,11 +1251,14 @@ Private Sub cmdarticulo_Click()
         Exit Sub
     End If
     RsArticulo.MoveLast
+    RsArticulo.MoveFirst  ' ===== INTEGRACION PRESTASHOP: Asegurar cursor en primera posicion =====
     If RsArticulo.RecordCount > 1 Then
         frmarticulos.Show
     Else
         NumArtVend = NumArtVend + 1
+        ModuloLog.LogDebug "Llamando a PoneArticulos - NumArtVend: " & NumArtVend
         PoneArticulos
+        ModuloLog.LogDebug "PoneArticulos ejecutado"
     End If
     CodigoBusca = ""
     Exit Sub

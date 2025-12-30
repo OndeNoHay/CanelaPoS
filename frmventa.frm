@@ -2024,27 +2024,30 @@ Private Sub A�adeControlesArticulos()
         Load txtprecio(NumArtVend)
         Load txtcolor(NumArtVend)
         Load txttalla(NumArtVend)
+        Load ComboTallas(NumArtVend)  ' ===== INTEGRACION PRESTASHOP: Load ComboTallas =====
         Load cmbdescu(NumArtVend)
         Load txtprefinal(NumArtVend)
         Load cmdElimina(NumArtVend)
         txtprefinal(NumArtVend).Text = ""
-        
+
         txtidarticulo(NumArtVend).Top = txtidarticulo(NumArtVend - 1).Top + 400
         txtcodigo(NumArtVend).Top = txtcodigo(NumArtVend - 1).Top + 400
         txttipo(NumArtVend).Top = txttipo(NumArtVend - 1).Top + 400
         txtprecio(NumArtVend).Top = txtprecio(NumArtVend - 1).Top + 400
         txtcolor(NumArtVend).Top = txtcolor(NumArtVend - 1).Top + 400
         txttalla(NumArtVend).Top = txttalla(NumArtVend - 1).Top + 400
+        ComboTallas(NumArtVend).Top = ComboTallas(NumArtVend - 1).Top + 400  ' ===== INTEGRACION PRESTASHOP =====
         cmbdescu(NumArtVend).Top = cmbdescu(NumArtVend - 1).Top + 400
         txtprefinal(NumArtVend).Top = txtprefinal(NumArtVend - 1).Top + 400
         cmdElimina(NumArtVend).Top = cmdElimina(NumArtVend - 1).Top + 400
-        
+
         txtidarticulo(NumArtVend).Visible = True
         txtcodigo(NumArtVend).Visible = True
         txttipo(NumArtVend).Visible = True
         txtprecio(NumArtVend).Visible = True
         txtcolor(NumArtVend).Visible = True
         txttalla(NumArtVend).Visible = True
+        ComboTallas(NumArtVend).Visible = True  ' ===== INTEGRACION PRESTASHOP =====
         cmbdescu(NumArtVend).Visible = True
         txtprefinal(NumArtVend).Visible = True
         cmdElimina(NumArtVend).Visible = True
@@ -2305,4 +2308,65 @@ Private Sub A�adeArticulosApartados()
     HaceSumaTotal
 dummyx = Val(txtentrega) + Val(txtTotal)
 'cmdapartado.Enabled = False
+End Sub
+
+'******************************************************************************
+'* INTEGRACION PRESTASHOP: Evento de seleccion de talla
+'******************************************************************************
+Private Sub ComboTallas_Click(Index As Integer)
+    On Error GoTo ErrorHandler
+
+    ' Verificar que hay un producto en cache
+    If Not HayProductoEnCache() Then Exit Sub
+
+    ' Verificar que se seleccionó algo
+    If ComboTallas(Index).ListIndex < 0 Then Exit Sub
+
+    Dim productoPS As ProductoPrestaShop
+    Dim tallaIndex As Integer
+    Dim idCombinacion As Long
+    Dim nombreTalla As String
+    Dim Rs As Recordset
+    Dim idArt As Long
+
+    ' Obtener producto del cache
+    productoPS = GetUltimoProductoEncontrado()
+
+    ' Verificar que tiene combinaciones
+    If Not productoPS.TieneCombinaciones Then Exit Sub
+    If productoPS.NumCombinaciones = 0 Then Exit Sub
+
+    ' Obtener combinación seleccionada (ListIndex es 0-based, array es 1-based)
+    tallaIndex = ComboTallas(Index).ListIndex + 1
+    If tallaIndex > productoPS.NumCombinaciones Then Exit Sub
+
+    idCombinacion = productoPS.Combinaciones(tallaIndex).IdCombinacion
+    nombreTalla = productoPS.Combinaciones(tallaIndex).Talla
+
+    ' Obtener ID del articulo en esta fila
+    idArt = CLng(txtidarticulo(Index).Text)
+
+    ' Actualizar BD con la talla y el id_combinacion
+    Set Rs = bdtienda.OpenRecordset("SELECT * FROM articulos WHERE idart = " & idArt)
+    If Not Rs.EOF Then
+        Rs.Edit
+        Rs!talla = nombreTalla
+        Rs!extra = "PS_ID:" & productoPS.IdProducto & "_" & idCombinacion & " [COMBO-" & nombreTalla & "]"
+        Rs.Update
+
+        ' Actualizar campo visual
+        txttalla(Index).Text = nombreTalla
+
+        ModuloLog.LogDebug "Talla seleccionada: " & nombreTalla & " (ID Combo: " & idCombinacion & ") para art. " & idArt
+    End If
+    Rs.Close
+    Set Rs = Nothing
+
+    ' Actualizar registro de sincronizacion con el id_combinacion correcto
+    ActualizarIdCombinacionSincronizacion idArt, idCombinacion
+
+    Exit Sub
+
+ErrorHandler:
+    ModuloLog.LogError "Error en ComboTallas_Click: " & Err.Description
 End Sub

@@ -239,6 +239,32 @@ Private Sub RegistrarArticuloParaSincronizacion(idArtLocal As Long, idProductoPS
 End Sub
 
 '******************************************************************************
+'* FUNCIÓN: ActualizarIdCombinacionSincronizacion
+'* PROPÓSITO: Actualiza el ID de combinación de un artículo ya registrado
+'*            Se llama cuando el usuario selecciona una talla en ComboTallas
+'* PARÁMETROS:
+'*   - idArtLocal: ID del artículo en BD local
+'*   - nuevoIdCombinacion: ID de la combinación seleccionada
+'******************************************************************************
+Public Sub ActualizarIdCombinacionSincronizacion(idArtLocal As Long, nuevoIdCombinacion As Long)
+    On Error Resume Next
+
+    Dim i As Integer
+
+    ' Buscar el artículo en el array de sincronización
+    For i = 1 To numArticulosVenta
+        If articulosVenta(i).IdArtLocal = idArtLocal Then
+            ' Actualizar el ID de combinación
+            articulosVenta(i).IdCombinacionPS = nuevoIdCombinacion
+            LogDebug "ID Combinacion actualizado para art. " & idArtLocal & ": " & nuevoIdCombinacion
+            Exit Sub
+        End If
+    Next i
+
+    LogWarning "No se encontró articulo " & idArtLocal & " en array de sincronización"
+End Sub
+
+'******************************************************************************
 '* FUNCIÓN: SincronizarStockVendido
 '* PROPÓSITO: Sincroniza el stock de todos los artículos vendidos con PrestaShop
 '* Debe llamarse después de completar una venta

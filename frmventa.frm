@@ -13,6 +13,15 @@ Begin VB.Form Venta
    ScaleHeight     =   8940
    ScaleWidth      =   12300
    WindowState     =   2  'Maximized
+   Begin VB.ComboBox ComboTallas 
+      Height          =   315
+      Index           =   1
+      Left            =   5400
+      TabIndex        =   73
+      Text            =   "Combo1"
+      Top             =   2040
+      Width           =   615
+   End
    Begin VB.CommandButton CmdTicketRegalo 
       Caption         =   "Imprime el Ticket Regalo"
       Height          =   615
@@ -996,7 +1005,7 @@ Private Sub Desaparta(ByVal artic As Integer)
     With RsArtApartado
         .MoveFirst
         Do Until .EOF = True
-            If !idArt = artic Then
+            If !Idart = artic Then
                 .Edit
                 !apartado = False
                 !vendido = False
@@ -1008,7 +1017,7 @@ Private Sub Desaparta(ByVal artic As Integer)
     With RsDetalApartado
         .MoveFirst
         Do Until .EOF = True
-            If !idArt = artic Then
+            If !Idart = artic Then
                 .Delete
                 
             End If
@@ -1242,7 +1251,7 @@ Private Sub cmdarticulo_Click()
             RsArticulo.MoveLast
             RsArticulo.MoveFirst
             ModuloLog.LogDebug "Articulo PS encontrado en BD. Records: " & RsArticulo.RecordCount
-            ModuloLog.LogDebug "Datos articulo - idart: " & RsArticulo!Idart & " | tipo: " & RsArticulo!tipo & " | precio: " & RsArticulo!PrecioVenta
+            ModuloLog.LogDebug "Datos articulo - idart: " & RsArticulo!Idart & " | tipo: " & RsArticulo!Tipo & " | precio: " & RsArticulo!PrecioVenta
         End If
     End If
     ' ===== FIN INTEGRACION PRESTASHOP =====
@@ -1481,10 +1490,10 @@ Private Sub cmddevuelven_Click()
     End If
     With rsbuscar
         dumresult = "Art�culo encontrado:" & Chr(13)
-        dumresult = dumresult & !idArt
-        dumresult = dumresult & Chr(13) & !idArt
+        dumresult = dumresult & !Idart
+        dumresult = dumresult & Chr(13) & !Idart
         dumresult = dumresult & Chr(13) & !codigo
-        dumresult = dumresult & Chr(13) & !tipo
+        dumresult = dumresult & Chr(13) & !Tipo
         dumresult = dumresult & Chr(13) & !PrecioVenta
         dumresult = dumresult & Chr(13) & !fechacompra
         dumresult = dumresult & Chr(13) & !fechaventa
@@ -1649,13 +1658,13 @@ hacecomentario = InputBox("�Desea anotar alg�n comentario?")
     With RsPrestamo
         For i = 1 To NumArtVend
         .AddNew
-            !idArt = txtidarticulo(i)
+            !Idart = txtidarticulo(i)
             !IdCliente = IdCliente
             !fecha = FechaTrabajo
             !comentario = hacecomentario
         .Update
         ReDim Preserve Ticket(i)
-        Ticket(i).idArt = txtidarticulo(i)
+        Ticket(i).Idart = txtidarticulo(i)
         Ticket(i).PrecioFinal = CCur(txtprefinal(i))
         Ticket(i).Descripcion = txtcodigo(i)
         SumaX = SumaX + CCur(txtprefinal(i))
@@ -1789,17 +1798,17 @@ Private Sub MarcaVenta()
                     Else
                         .MoveFirst
                         Do Until .EOF = True
-                            If !idArt = txtidarticulo(i).Text Then Exit Do
+                            If !Idart = txtidarticulo(i).Text Then Exit Do
                             .MoveNext
                         Loop
                         .Edit
                     End If
                     !IdVenta = IdVenta
                     !IdCliente = IdCliente
-                    !idArt = txtidarticulo(i).Text
+                    !Idart = txtidarticulo(i).Text
                     !PrecioFinal = CCur(txtprefinal(i).Text)
                     .Update
-                    Ticket(i).idArt = txtidarticulo(i).Text
+                    Ticket(i).Idart = txtidarticulo(i).Text
                     Ticket(i).PrecioFinal = CCur(txtprefinal(i).Text)
                     Ticket(i).Descripcion = txttipo(i).Text '& " " & txtcodigo(i).Text
                     '.Update
@@ -1901,9 +1910,9 @@ Public Sub PoneArticulos()
         A�adeControlesArticulos
     End If
         With RsArticulo
-        txtidarticulo(NumArtVend).Text = !idArt
+        txtidarticulo(NumArtVend).Text = !Idart
         txtcodigo(NumArtVend).Text = "" & !codigo
-        txttipo(NumArtVend).Text = "" & !tipo
+        txttipo(NumArtVend).Text = "" & !Tipo
         txtprecio(NumArtVend).Text = "" & !PrecioVenta
         txtcolor(NumArtVend).Text = "" & !Color
         txttalla(NumArtVend).Text = "" & !talla
@@ -1939,16 +1948,16 @@ Public Sub PoneArticuloGenerico(ByVal Dumprecio As Currency)
         !PrecioVenta = Dumprecio
         !PrecioCompra = Dumprecio / 2
         If BlGoyse = True Then
-            !tipo = Dumtipo
+            !Tipo = Dumtipo
             !codigo = GoyseCode
             BlGoyse = False
         Else
-            !tipo = Dumtipo
+            !Tipo = Dumtipo
             !codigo = DumCode '"gen�rico"
         End If
-        txtidarticulo(NumArtVend).Text = !idArt
+        txtidarticulo(NumArtVend).Text = !Idart
         txtcodigo(NumArtVend).Text = DumCode '"" & !codigo
-        txttipo(NumArtVend).Text = "" & !tipo
+        txttipo(NumArtVend).Text = "" & !Tipo
         txtprecio(NumArtVend).Text = Dumprecio
         txtcolor(NumArtVend).Text = "" & !Color
         txttalla(NumArtVend).Text = "" & !talla
@@ -2205,7 +2214,7 @@ Public Sub BuscaVentaApartada()
             ReDim PreFinalApart(RsDetalApartado.RecordCount - 1)
             RsDetalApartado.MoveFirst
             For x = 0 To RsDetalApartado.RecordCount - 1
-                IdArtApart(x) = RsDetalApartado!idArt
+                IdArtApart(x) = RsDetalApartado!Idart
                 PreFinalApart(x) = RsDetalApartado!PrecioFinal
                 RsDetalApartado.MoveNext
             Next x
@@ -2250,9 +2259,9 @@ Private Sub A�adeArticulosApartados()
               A�adeControlesArticulos
           End If
         
-          txtidarticulo(dummy).Text = !idArt
+          txtidarticulo(dummy).Text = !Idart
           txtcodigo(dummy).Text = "" & !codigo
-          txttipo(dummy).Text = "" & !tipo
+          txttipo(dummy).Text = "" & !Tipo
           txtprecio(dummy).Text = PreFinalApart(dummy - 1)
           txtcolor(dummy).Text = "" & !Color
           txttalla(dummy).Text = "" & !talla
@@ -2262,8 +2271,8 @@ Private Sub A�adeArticulosApartados()
               txtprefinal(dummy).Text = txtprecio(dummy).Text
           End If
           ReDim Preserve Ticket(dummy)
-          Ticket(dummy).idArt = !idArt
-          Ticket(dummy).Descripcion = !tipo
+          Ticket(dummy).Idart = !Idart
+          Ticket(dummy).Descripcion = !Tipo
           Ticket(dummy).PrecioFinal = txtprefinal(dummy)
           .MoveNext
         Loop

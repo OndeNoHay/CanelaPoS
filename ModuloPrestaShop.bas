@@ -13,6 +13,16 @@ Private Const PS_API_BRIDGE_URL As String = "https://www.canelamoda.es/api_bridg
 Private Const PS_API_TIMEOUT As Long = 30000  ' 30 segundos
 
 '--- Tipos de datos ---
+
+' Combinacion (talla) de un producto
+Type CombinacionProducto
+    IdCombinacion As Long
+    Talla As String
+    Stock As Long
+    Disponible As Boolean
+End Type
+
+' Producto de PrestaShop
 Type ProductoPrestaShop
     IdProducto As Long
     Referencia As String
@@ -28,6 +38,9 @@ Type ProductoPrestaShop
     Activo As Boolean
     Encontrado As Boolean
     MensajeError As String
+    ' Combinaciones (tallas)
+    Combinaciones(1 To 50) As CombinacionProducto  ' Maximo 50 tallas por producto
+    NumCombinaciones As Integer
 End Type
 
 Type ResultadoActualizacion
@@ -382,17 +395,20 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
     ' Verificar si tiene combinaciones (bridge.php usa "tiene_combinaciones")
     producto.TieneCombinaciones = ExtraerValorBooleano(dataContent, "tiene_combinaciones")
 
-    ' Si tiene combinaciones, extraer la primera combinación disponible
+    ' Inicializar array de combinaciones
+    producto.NumCombinaciones = 0
+
+    ' Si tiene combinaciones, parsear array completo de tallas
     If producto.TieneCombinaciones Then
-        ' Buscar primera combinación en el array "combinaciones"
-        Dim posCombo As Long
-        posCombo = InStr(1, dataContent, """combinaciones""", vbTextCompare)
-        If posCombo > 0 Then
-            ' Extraer id_combinacion de la primera combinación
-            producto.IdCombinacion = ExtraerValorNumerico(Mid(dataContent, posCombo), "id_combinacion")
-            If producto.IdCombinacion = 0 Then
-                producto.IdCombinacion = ExtraerValorNumerico(Mid(dataContent, posCombo), "id_product_attribute")
-            End If
+        producto.NumCombinaciones = ParsearCombinaciones(dataContent, producto.Combinaciones)
+
+        If producto.NumCombinaciones > 0 Then
+            ' Usar la primera combinación como referencia temporal
+            ' (el usuario deberá seleccionar la talla específica en el formulario)
+            producto.IdCombinacion = producto.Combinaciones(1).IdCombinacion
+            LogInfo "Producto con " & producto.NumCombinaciones & " tallas disponibles"
+        Else
+            LogWarning "Producto tiene combinaciones pero ninguna con stock > 0"
         End If
     End If
 
@@ -596,6 +612,105 @@ Private Function ExtraerValorBooleano(ByVal jsonText As String, ByVal campo As S
             ExtraerValorBooleano = True
         End If
     End If
+End Function
+
+'******************************************************************************
+'* FUNCIÓN: ParsearCombinaciones
+'* PROPÓSITO: Extrae array de combinaciones (tallas) del JSON
+'* PARÁMETROS:
+'*   - jsonText: Texto JSON que contiene "combinaciones": [...]
+'*   - combos: Array donde se almacenarán las combinaciones (ByRef)
+'* RETORNA: Número de combinaciones parseadas (solo las que tienen stock > 0)
+'******************************************************************************
+Private Function ParsearCombinaciones(ByVal jsonText As String, ByRef combos() As CombinacionProducto) As Integer
+    On Error Resume Next
+
+    Dim posArray As Long
+    Dim posStart As Long
+    Dim posEnd As Long
+    Dim nivel As Integer
+    Dim i As Long
+    Dim numCombos As Integer
+    Dim objetoCombo As String
+    Dim combo As CombinacionProducto
+
+    numCombos = 0
+
+    ' Buscar "combinaciones": [
+    posArray = InStr(1, jsonText, """combinaciones""", vbTextCompare)
+    If posArray = 0 Then
+        ParsearCombinaciones = 0
+        Exit Function
+    End If
+
+    ' Buscar el [ que abre el array
+    posArray = InStr(posArray, jsonText, "[")
+    If posArray = 0 Then
+        ParsearCombinaciones = 0
+        Exit Function
+    End If
+
+    ' Buscar cada objeto {...} dentro del array
+    posStart = posArray + 1
+
+    Do While posStart < Len(jsonText) And numCombos < 50
+        ' Saltar espacios y comas
+        Do While posStart < Len(jsonText)
+            Dim ch As String
+            ch = Mid(jsonText, posStart, 1)
+            If ch <> " " And ch <> vbCrLf And ch <> vbLf And ch <> vbTab And ch <> "," Then
+                Exit Do
+            End If
+            posStart = posStart + 1
+        Loop
+
+        ' Si encontramos ], terminamos
+        If Mid(jsonText, posStart, 1) = "]" Then Exit Do
+
+        ' Si no es {, saltar
+        If Mid(jsonText, posStart, 1) <> "{" Then Exit Do
+
+        ' Encontrar el } correspondiente
+        nivel = 1
+        posEnd = posStart
+        For i = posStart + 1 To Len(jsonText)
+            If Mid(jsonText, i, 1) = "{" Then nivel = nivel + 1
+            If Mid(jsonText, i, 1) = "}" Then nivel = nivel - 1
+            If nivel = 0 Then
+                posEnd = i
+                Exit For
+            End If
+        Next i
+
+        If nivel <> 0 Then Exit Do ' No se encontró el cierre
+
+        ' Extraer objeto completo
+        objetoCombo = Mid(jsonText, posStart, posEnd - posStart + 1)
+
+        ' Parsear campos de la combinación
+        combo.IdCombinacion = ExtraerValorNumerico(objetoCombo, "id_combinacion")
+        If combo.IdCombinacion = 0 Then
+            combo.IdCombinacion = ExtraerValorNumerico(objetoCombo, "id_product_attribute")
+        End If
+        combo.Talla = ExtraerValorCadena(objetoCombo, "talla")
+        combo.Stock = ExtraerValorNumerico(objetoCombo, "stock")
+        combo.Disponible = ExtraerValorBooleano(objetoCombo, "disponible")
+
+        ' Solo agregar si tiene stock > 0 (requisito del usuario)
+        If combo.Stock > 0 Then
+            numCombos = numCombos + 1
+            combos(numCombos) = combo
+
+            If ModoDebug Then
+                LogDebug "Combinacion parseada: " & combo.Talla & " (ID: " & combo.IdCombinacion & ", Stock: " & combo.Stock & ")"
+            End If
+        End If
+
+        ' Mover al siguiente objeto
+        posStart = posEnd + 1
+    Loop
+
+    ParsearCombinaciones = numCombos
 End Function
 
 '******************************************************************************

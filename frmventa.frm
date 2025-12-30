@@ -1268,6 +1268,31 @@ Private Sub cmdarticulo_Click()
         ModuloLog.LogDebug "Llamando a PoneArticulos - NumArtVend: " & NumArtVend
         PoneArticulos
         ModuloLog.LogDebug "PoneArticulos ejecutado"
+
+        ' ===== INTEGRACION PRESTASHOP: Popular ComboTallas si hay combinaciones =====
+        If idArtPrestaShop <> 0 And HayProductoEnCache() Then
+            Dim productoPS As ProductoPrestaShop
+            Dim i As Integer
+
+            productoPS = GetUltimoProductoEncontrado()
+
+            If productoPS.TieneCombinaciones And productoPS.NumCombinaciones > 0 Then
+                ' Popular ComboBox con tallas disponibles
+                ComboTallas(NumArtVend).Clear
+                For i = 1 To productoPS.NumCombinaciones
+                    ComboTallas(NumArtVend).AddItem productoPS.Combinaciones(i).Talla
+                Next i
+                ComboTallas(NumArtVend).Enabled = True
+                ComboTallas(NumArtVend).ListIndex = -1  ' Dejar vacio (usuario debe elegir)
+                ModuloLog.LogDebug "ComboTallas populado con " & productoPS.NumCombinaciones & " tallas"
+            Else
+                ' Producto sin combinaciones - deshabilitar combo
+                ComboTallas(NumArtVend).Clear
+                ComboTallas(NumArtVend).Enabled = False
+                ModuloLog.LogDebug "Producto sin combinaciones - ComboTallas deshabilitado"
+            End If
+        End If
+        ' ===== FIN INTEGRACION PRESTASHOP =====
     End If
     CodigoBusca = ""
     Exit Sub

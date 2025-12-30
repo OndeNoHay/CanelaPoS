@@ -21,6 +21,10 @@ End Type
 Private articulosVenta() As ArticuloPrestaShop
 Private numArticulosVenta As Integer
 
+' Cache temporal del último producto encontrado (para acceder a combinaciones desde formulario)
+Private ultimoProductoEncontrado As ProductoPrestaShop
+Private hayProductoCacheado As Boolean
+
 '******************************************************************************
 '* FUNCIÓN: InicializarIntegracion
 '* PROPÓSITO: Inicializa el sistema de integración PrestaShop
@@ -82,6 +86,10 @@ Public Function BuscarProductoPrestaShop(ByVal Codigo As String) As Long
 
     LogBusquedaProducto Codigo, True, producto.idProducto, producto.Nombre
 
+    ' Cachear producto para acceso a combinaciones desde formulario
+    ultimoProductoEncontrado = producto
+    hayProductoCacheado = True
+
     ' Producto encontrado - crear en BD local
     idArtLocal = CrearArticuloDesdePrestaShop(producto, Codigo)
 
@@ -96,6 +104,25 @@ Public Function BuscarProductoPrestaShop(ByVal Codigo As String) As Long
 ErrorHandler:
     LogError "Error en BuscarProductoPrestaShop: " & Err.Description
     BuscarProductoPrestaShop = 0
+End Function
+
+'******************************************************************************
+'* FUNCIÓN: GetUltimoProductoEncontrado
+'* PROPÓSITO: Obtiene el último producto encontrado en PrestaShop (con combinaciones)
+'* RETORNA: ProductoPrestaShop con datos completos incluyendo array de combinaciones
+'* NOTA: Usar inmediatamente después de BuscarProductoPrestaShop exitoso
+'******************************************************************************
+Public Function GetUltimoProductoEncontrado() As ProductoPrestaShop
+    GetUltimoProductoEncontrado = ultimoProductoEncontrado
+End Function
+
+'******************************************************************************
+'* FUNCIÓN: HayProductoEnCache
+'* PROPÓSITO: Verifica si hay un producto cacheado disponible
+'* RETORNA: True si hay un producto en caché
+'******************************************************************************
+Public Function HayProductoEnCache() As Boolean
+    HayProductoEnCache = hayProductoCacheado
 End Function
 
 '******************************************************************************

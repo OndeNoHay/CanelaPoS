@@ -10,9 +10,9 @@ Option Explicit
 
 '--- Variables globales para tracking de productos PrestaShop ---
 Type ArticuloPrestaShop
-    IdArtLocal As Long              ' ID del artículo en la BD local
-    IdProductoPS As Long            ' ID del producto en PrestaShop
-    IdCombinacionPS As Long         ' ID de combinación en PrestaShop (0 si no tiene)
+    idArtLocal As Long              ' ID del artículo en la BD local
+    idProductoPS As Long            ' ID del producto en PrestaShop
+    idCombinacionPS As Long         ' ID de combinación en PrestaShop (0 si no tiene)
     CodigoBuscado As String         ' Código usado para buscar
     SincronizarStock As Boolean     ' True si debe sincronizarse con PS
 End Type
@@ -33,7 +33,7 @@ Public Sub InicializarIntegracion()
     CargarConfiguracion
 
     ' Inicializar logging si está habilitado
-    If LogHabilitado Then
+    If logHabilitado Then
         InicializarLog
         EscribirLog "Sistema de integración PrestaShop iniciado"
     End If
@@ -53,7 +53,7 @@ End Sub
 '*   - codigo: Código del producto (referencia o EAN)
 '* RETORNA: ID del artículo local (0 si no se encuentra o hay error)
 '******************************************************************************
-Public Function BuscarProductoPrestaShop(ByVal codigo As String) As Long
+Public Function BuscarProductoPrestaShop(ByVal Codigo As String) As Long
     On Error GoTo ErrorHandler
 
     Dim producto As ProductoPrestaShop
@@ -67,27 +67,27 @@ Public Function BuscarProductoPrestaShop(ByVal codigo As String) As Long
     End If
 
     ' Validar código
-    If Trim(codigo) = "" Then Exit Function
+    If Trim(Codigo) = "" Then Exit Function
 
-    LogBusquedaProducto codigo, False
+    LogBusquedaProducto Codigo, False
 
     ' Buscar en PrestaShop
-    producto = ModuloPrestaShop.BuscarProductoPorCodigo(codigo)
+    producto = ModuloPrestaShop.BuscarProductoPorCodigo(Codigo)
 
     ' Si no se encuentra, salir sin error
-    If Not producto.Encontrado Then
-        LogBusquedaProducto codigo, False
+    If Not producto.encontrado Then
+        LogBusquedaProducto Codigo, False
         Exit Function
     End If
 
-    LogBusquedaProducto codigo, True, producto.IdProducto, producto.Nombre
+    LogBusquedaProducto Codigo, True, producto.idProducto, producto.Nombre
 
     ' Producto encontrado - crear en BD local
-    idArtLocal = CrearArticuloDesdePrestaShop(producto, codigo)
+    idArtLocal = CrearArticuloDesdePrestaShop(producto, Codigo)
 
     If idArtLocal > 0 Then
         ' Registrar para sincronización de stock posterior
-        RegistrarArticuloParaSincronizacion idArtLocal, producto.IdProducto, producto.IdCombinacion, codigo
+        RegistrarArticuloParaSincronizacion idArtLocal, producto.idProducto, producto.idCombinacion, Codigo
         BuscarProductoPrestaShop = idArtLocal
     End If
 
@@ -102,7 +102,7 @@ End Function
 '* FUNCIÓN: CrearArticuloDesdePrestaShop
 '* PROPÓSITO: Crea un artículo temporal en la BD local desde datos de PrestaShop
 '******************************************************************************
-Private Function CrearArticuloDesdePrestaShop(producto As ProductoPrestaShop, codigo As String) As Long
+Private Function CrearArticuloDesdePrestaShop(producto As ProductoPrestaShop, Codigo As String) As Long
     On Error GoTo ErrorHandler
 
     Dim Rs As Recordset
@@ -118,19 +118,19 @@ Private Function CrearArticuloDesdePrestaShop(producto As ProductoPrestaShop, co
 
         ' Generar un ID temporal único (negativo para identificar artículos de PrestaShop)
         ' Esto evita conflictos con IDs reales de la BD local
-        nuevoIdArt = -(producto.IdProducto * 10000 + IIf(producto.IdCombinacion > 0, producto.IdCombinacion, 1))
+        nuevoIdArt = (producto.idProducto * 10000 + IIf(producto.idCombinacion > 0, producto.idCombinacion, 1))
         !Idart = nuevoIdArt
 
         ' Datos del producto
-        !codigo = codigo
-        !tipo = Left(producto.Nombre, 50)  ' Nombre del producto (truncado a 50 chars)
-        !color = ""  ' Por defecto vacio
+        !Codigo = Codigo
+        !Tipo = Left(producto.Nombre, 50)  ' Nombre del producto (truncado a 50 chars)
+        !Color = ""  ' Por defecto vacio
         !talla = ""  ' Por defecto vacio
 
         ' Precios
         !PrecioVenta = producto.PrecioConIVA
         !siniva = producto.PrecioSinIVA
-        !PrecioCompra = producto.PrecioSinIVA  ' Asumir que precio sin IVA es precio de compra
+        !PrecioCompra = producto.PrecioConIVA / 2.5 ' Asumir que precio sin IVA es precio de compra
 
         ' IVA
         If producto.PorcentajeIVA > 0 Then
@@ -151,9 +151,9 @@ Private Function CrearArticuloDesdePrestaShop(producto As ProductoPrestaShop, co
 
         ' Descripción en campo extra (para referencia)
         If producto.TieneCombinaciones Then
-            !extra = "PS_ID:" & producto.IdProducto & "_" & producto.IdCombinacion & " [COMBO]"
+            !extra = "PS_ID:" & producto.idProducto & "_" & producto.idCombinacion & " [COMBO]"
         Else
-            !extra = "PS_ID:" & producto.IdProducto & " [SIMPLE]"
+            !extra = "PS_ID:" & producto.idProducto & " [SIMPLE]"
         End If
 
         ' Fechas
@@ -173,7 +173,7 @@ Private Function CrearArticuloDesdePrestaShop(producto As ProductoPrestaShop, co
         CrearArticuloDesdePrestaShop = 0
     Else
         CrearArticuloDesdePrestaShop = nuevoIdArt
-        LogInfo "Artículo creado desde PrestaShop - ID Local: " & nuevoIdArt & " | ID PS: " & producto.IdProducto
+        LogInfo "Artículo creado desde PrestaShop - ID Local: " & nuevoIdArt & " | ID PS: " & producto.idProducto
         LogDebug "Verificacion BD exitosa - Articulo existe con idart=" & Rs!Idart
     End If
 
@@ -194,17 +194,17 @@ End Function
 '* PROPÓSITO: Registra un artículo para sincronización de stock posterior
 '******************************************************************************
 Private Sub RegistrarArticuloParaSincronizacion(idArtLocal As Long, idProductoPS As Long, _
-                                               idCombinacionPS As Long, codigo As String)
+                                               idCombinacionPS As Long, Codigo As String)
     On Error Resume Next
 
     numArticulosVenta = numArticulosVenta + 1
     ReDim Preserve articulosVenta(numArticulosVenta)
 
     With articulosVenta(numArticulosVenta)
-        .IdArtLocal = idArtLocal
-        .IdProductoPS = idProductoPS
-        .IdCombinacionPS = idCombinacionPS
-        .CodigoBuscado = codigo
+        .idArtLocal = idArtLocal
+        .idProductoPS = idProductoPS
+        .idCombinacionPS = idCombinacionPS
+        .CodigoBuscado = Codigo
         .SincronizarStock = True
     End With
 
@@ -242,20 +242,20 @@ Public Sub SincronizarStockVendido()
     For i = 1 To numArticulosVenta
         If articulosVenta(i).SincronizarStock Then
             ' Actualizar stock en PrestaShop (decrementar en 1)
-            resultado = ActualizarStock(articulosVenta(i).IdProductoPS, 1, articulosVenta(i).IdCombinacionPS)
+            resultado = ActualizarStock(articulosVenta(i).idProductoPS, 1, articulosVenta(i).idCombinacionPS)
 
-            If resultado.Exito Then
+            If resultado.exito Then
                 exitos = exitos + 1
-                LogSincronizacionStock articulosVenta(i).IdProductoPS, resultado.StockAnterior, _
-                                      resultado.StockNuevo, True
+                LogSincronizacionStock articulosVenta(i).idProductoPS, resultado.stockAnterior, _
+                                      resultado.stockNuevo, True
 
                 ' Eliminar el artículo temporal de la BD local (IDs negativos)
-                If articulosVenta(i).IdArtLocal < 0 Then
-                    EliminarArticuloTemporal articulosVenta(i).IdArtLocal
+                If articulosVenta(i).idArtLocal < 0 Then
+                    EliminarArticuloTemporal articulosVenta(i).idArtLocal
                 End If
             Else
                 fallos = fallos + 1
-                LogSincronizacionStock articulosVenta(i).IdProductoPS, 0, 0, False, resultado.MensajeError
+                LogSincronizacionStock articulosVenta(i).idProductoPS, 0, 0, False, resultado.MensajeError
             End If
         End If
     Next i
@@ -270,19 +270,19 @@ End Sub
 '* FUNCIÓN: EliminarArticuloTemporal
 '* PROPÓSITO: Elimina un artículo temporal de la BD local (creado desde PrestaShop)
 '******************************************************************************
-Private Sub EliminarArticuloTemporal(idArt As Long)
+Private Sub EliminarArticuloTemporal(Idart As Long)
     On Error Resume Next
 
     Dim Rs As Recordset
 
     ' Solo eliminar artículos con ID negativo (temporales de PrestaShop)
-    If idArt >= 0 Then Exit Sub
+    If Idart >= 0 Then Exit Sub
 
-    Set Rs = bdtienda.OpenRecordset("SELECT * FROM articulos WHERE idart = " & idArt)
+    Set Rs = bdtienda.OpenRecordset("SELECT * FROM articulos WHERE idart = " & Idart)
 
     If Not Rs.EOF Then
         Rs.Delete
-        LogDebug "Artículo temporal eliminado: " & idArt
+        LogDebug "Artículo temporal eliminado: " & Idart
     End If
 
     Rs.Close
@@ -310,8 +310,8 @@ Public Sub CancelarVenta()
 
     ' Eliminar artículos temporales
     For i = 1 To numArticulosVenta
-        If articulosVenta(i).IdArtLocal < 0 Then
-            EliminarArticuloTemporal articulosVenta(i).IdArtLocal
+        If articulosVenta(i).idArtLocal < 0 Then
+            EliminarArticuloTemporal articulosVenta(i).idArtLocal
         End If
     Next i
 
@@ -328,7 +328,7 @@ End Sub
 '*   - codigo: Código del producto
 '* RETORNA: Stock disponible (-1 si hay error o no se encuentra)
 '******************************************************************************
-Public Function VerificarStockPrestaShop(ByVal codigo As String) As Long
+Public Function VerificarStockPrestaShop(ByVal Codigo As String) As Long
     On Error GoTo ErrorHandler
 
     Dim producto As ProductoPrestaShop
@@ -338,13 +338,13 @@ Public Function VerificarStockPrestaShop(ByVal codigo As String) As Long
     If Not IntegracionHabilitada Then Exit Function
 
     ' Buscar producto
-    producto = BuscarProductoPorCodigo(codigo)
+    producto = BuscarProductoPorCodigo(Codigo)
 
-    If producto.Encontrado Then
+    If producto.encontrado Then
         VerificarStockPrestaShop = producto.StockDisponible
-        LogDebug "Stock verificado para " & codigo & ": " & producto.StockDisponible
+        LogDebug "Stock verificado para " & Codigo & ": " & producto.StockDisponible
     Else
-        LogDebug "Producto no encontrado para verificar stock: " & codigo
+        LogDebug "Producto no encontrado para verificar stock: " & Codigo
     End If
 
     Exit Function
@@ -382,7 +382,7 @@ Public Sub FinalizarIntegracion()
     On Error Resume Next
 
     ' Cerrar log
-    If LogHabilitado Then
+    If logHabilitado Then
         EscribirLog "Sistema de integración PrestaShop finalizado"
         CerrarLog
     End If

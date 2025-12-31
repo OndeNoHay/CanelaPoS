@@ -839,12 +839,25 @@ function actualizarStockEnPrestaShop($idProducto, $cantidad, $idCombinacion = 0)
         }
 
         // 4. Construir XML para actualización
+        // IMPORTANTE: PrestaShop requiere TODOS los campos, no solo los que cambian
+        // Por eso tomamos el XML completo y modificamos solo quantity
         $xmlUpdate = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><prestashop></prestashop>');
         $stockElement = $xmlUpdate->addChild('stock_available');
-        $stockElement->addChild('id', $idStockAvailable);
-        $stockElement->addChild('id_product', $idProducto);
-        $stockElement->addChild('id_product_attribute', $idCombinacion);
-        $stockElement->addChild('quantity', $stockNuevo);
+
+        // Copiar TODOS los campos del registro original
+        $stockElement->addChild('id', (string)$stockAvailable->id);
+        $stockElement->addChild('id_product', (string)$stockAvailable->id_product);
+        $stockElement->addChild('id_product_attribute', (string)$stockAvailable->id_product_attribute);
+        $stockElement->addChild('id_shop', (string)$stockAvailable->id_shop);
+        $stockElement->addChild('id_shop_group', (string)$stockAvailable->id_shop_group);
+        $stockElement->addChild('quantity', $stockNuevo);  // Este es el único que cambia
+        $stockElement->addChild('depends_on_stock', (string)$stockAvailable->depends_on_stock);
+        $stockElement->addChild('out_of_stock', (string)$stockAvailable->out_of_stock);
+
+        // Si hay location, incluirlo (puede ser vacío)
+        if (isset($stockAvailable->location)) {
+            $stockElement->addChild('location', (string)$stockAvailable->location);
+        }
 
         $xmlData = $xmlUpdate->asXML();
 

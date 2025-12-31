@@ -252,67 +252,76 @@ function handleInfoProducto() {
 function handleActualizarStock() {
     $inicio = microtime(true);
 
-    // Validar método HTTP
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        responderError(405, 'Método no permitido. Use POST', [
-            'metodo_recibido' => $_SERVER['REQUEST_METHOD']
-        ]);
-    }
+    try {
+        // Validar método HTTP
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            responderError(405, 'Método no permitido. Use POST', [
+                'metodo_recibido' => $_SERVER['REQUEST_METHOD']
+            ]);
+        }
 
-    // Validar parámetros
-    if (!isset($_POST['id_producto']) || !is_numeric($_POST['id_producto'])) {
-        responderError(400, 'Parámetro "id_producto" numérico requerido');
-    }
+        // Validar parámetros
+        if (!isset($_POST['id_producto']) || !is_numeric($_POST['id_producto'])) {
+            responderError(400, 'Parámetro "id_producto" numérico requerido');
+        }
 
-    if (!isset($_POST['cantidad']) || !is_numeric($_POST['cantidad'])) {
-        responderError(400, 'Parámetro "cantidad" numérico requerido');
-    }
+        if (!isset($_POST['cantidad']) || !is_numeric($_POST['cantidad'])) {
+            responderError(400, 'Parámetro "cantidad" numérico requerido');
+        }
 
-    $idProducto = intval($_POST['id_producto']);
-    $cantidad = intval($_POST['cantidad']);
-    $idCombinacion = isset($_POST['id_combinacion']) ? intval($_POST['id_combinacion']) : 0;
+        $idProducto = intval($_POST['id_producto']);
+        $cantidad = intval($_POST['cantidad']);
+        $idCombinacion = isset($_POST['id_combinacion']) ? intval($_POST['id_combinacion']) : 0;
 
-    // Determinar tipo de operación para log
-    $operacion = $cantidad < 0 ? 'DECREMENTO' : 'INCREMENTO';
-    $cantidadAbs = abs($cantidad);
+        // Determinar tipo de operación para log
+        $operacion = $cantidad < 0 ? 'DECREMENTO' : 'INCREMENTO';
+        $cantidadAbs = abs($cantidad);
 
-    registrarLog(
-        'STOCK_UPDATE',
-        $idProducto,
-        "Solicitud actualización stock: Producto=$idProducto, Combinacion=$idCombinacion, Operacion=$operacion, Cantidad=$cantidadAbs"
-    );
-
-    // Actualizar stock en PrestaShop
-    $resultado = actualizarStockEnPrestaShop($idProducto, $cantidad, $idCombinacion);
-
-    if ($resultado['success']) {
-        $tiempo = round((microtime(true) - $inicio) * 1000);
         registrarLog(
             'STOCK_UPDATE',
             $idProducto,
-            "Stock actualizado: {$resultado['stock_anterior']} -> {$resultado['stock_nuevo']}",
-            $tiempo
+            "Solicitud actualización stock: Producto=$idProducto, Combinacion=$idCombinacion, Operacion=$operacion, Cantidad=$cantidadAbs"
         );
 
-        responderExito([
-            'id_producto' => $idProducto,
-            'id_combinacion' => $idCombinacion,
-            'stock_anterior' => $resultado['stock_anterior'],
-            'stock_nuevo' => $resultado['stock_nuevo'],
-            'operacion' => $operacion,
-            'cantidad_modificada' => $cantidadAbs
-        ], $tiempo);
-    } else {
-        registrarLog(
-            'ERROR',
-            $idProducto,
-            "Error actualizando stock: {$resultado['error']}"
-        );
+        // Actualizar stock en PrestaShop
+        $resultado = actualizarStockEnPrestaShop($idProducto, $cantidad, $idCombinacion);
 
-        responderError(500, 'Error al actualizar stock', [
-            'id_producto' => $idProducto,
-            'id_combinacion' => $idCombinacion,
-            'error' => $resultado['error']
+        if ($resultado['success']) {
+            $tiempo = round((microtime(true) - $inicio) * 1000);
+            registrarLog(
+                'STOCK_UPDATE',
+                $idProducto,
+                "Stock actualizado: {$resultado['stock_anterior']} -> {$resultado['stock_nuevo']}",
+                $tiempo
+            );
+
+            responderExito([
+                'id_producto' => $idProducto,
+                'id_combinacion' => $idCombinacion,
+                'stock_anterior' => $resultado['stock_anterior'],
+                'stock_nuevo' => $resultado['stock_nuevo'],
+                'operacion' => $operacion,
+                'cantidad_modificada' => $cantidadAbs
+            ], $tiempo);
+        } else {
+            registrarLog(
+                'ERROR',
+                $idProducto,
+                "Error actualizando stock: {$resultado['error']}"
+            );
+
+            responderError(500, 'Error al actualizar stock', [
+                'id_producto' => $idProducto,
+                'id_combinacion' => $idCombinacion,
+                'error' => $resultado['error']
+            ]);
+        }
+    } catch (Exception $e) {
+        registrarLog('ERROR', 'STOCK_UPDATE', "Excepción fatal: " . $e->getMessage());
+        responderError(500, 'Error interno del servidor', [
+            'excepcion' => $e->getMessage(),
+            'archivo' => $e->getFile(),
+            'linea' => $e->getLine()
         ]);
     }
 }
@@ -691,9 +700,13 @@ function callPrestaShop($resource, $method = 'GET', $data = null) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, API_TIMEOUT);
     curl_setopt($ch, CURLOPT_USERPWD, PRESTASHOP_API_KEY . ':');
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Output-Format: XML'
-    ]);
+
+    // Headers
+    $headers = ['Output-Format: XML'];
+    if ($method == 'POST' || $method == 'PUT') {
+        $headers[] = 'Content-Type: text/xml';
+    }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
     // SSL (producción debe verificar certificados)
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
@@ -801,6 +814,7 @@ function actualizarStockEnPrestaShop($idProducto, $cantidad, $idCombinacion = 0)
         $xml = simplexml_load_string($resultado['data']);
 
         if (!isset($xml->stock_availables->stock_available)) {
+            registrarLog('ERROR', $idProducto, "No se encontró stock_available en respuesta XML");
             return [
                 'success' => false,
                 'error' => "No se encontró stock_available para producto=$idProducto, combinacion=$idCombinacion"
@@ -840,11 +854,14 @@ function actualizarStockEnPrestaShop($idProducto, $cantidad, $idCombinacion = 0)
         $resultadoPut = callPrestaShop("stock_availables/$idStockAvailable", 'PUT', $xmlData);
 
         if ($resultadoPut['code'] != 200) {
+            registrarLog('ERROR', $idProducto, "PUT falló: HTTP {$resultadoPut['code']} - Respuesta: " . substr($resultadoPut['data'], 0, 200));
             return [
                 'success' => false,
                 'error' => "Error al actualizar stock: HTTP {$resultadoPut['code']}"
             ];
         }
+
+        registrarLog('DEBUG', $idProducto, "PUT exitoso: HTTP 200");
 
         // 6. Retornar éxito con valores
         return [

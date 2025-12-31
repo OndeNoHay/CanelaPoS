@@ -295,7 +295,7 @@ Public Sub SincronizarStockVendido()
     For i = 1 To numArticulosVenta
         If articulosVenta(i).SincronizarStock Then
             ' Actualizar stock en PrestaShop (decrementar en 1)
-            resultado = ActualizarStock(articulosVenta(i).idProductoPS, 1, articulosVenta(i).idCombinacionPS)
+            resultado = ActualizarStock(articulosVenta(i).idProductoPS, -1, articulosVenta(i).idCombinacionPS)
 
             If resultado.exito Then
                 exitos = exitos + 1

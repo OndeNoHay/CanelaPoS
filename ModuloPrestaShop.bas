@@ -203,33 +203,23 @@ Public Function ActualizarStock(ByVal idProducto As Long, ByVal cantidad As Long
     resultado.stockNuevo = 0
 
     ' Validar parámetros
-    If idProducto <= 0 Or cantidad <= 0 Then
-        resultado.MensajeError = "Parámetros inválidos"
+    If idProducto <= 0 Then
+        resultado.MensajeError = "ID de producto inválido"
         ActualizarStock = resultado
         Exit Function
     End If
 
-    ' NOTA: El bridge.php actual (Fase 1) es SOLO LECTURA
-    ' La actualización de stock se implementará en Fase 2
-    ' Por ahora, registramos la operación en el log
-    EscribirLog "ADVERTENCIA: Actualización de stock aún no implementada en bridge.php"
-    EscribirLog "Producto: " & idProducto & ", Cantidad a decrementar: " & cantidad
+    ' Construir URL
+    url = PS_API_BRIDGE_URL & "bridge.php?action=actualizar_stock"
 
-    ' Marcar como éxito (simulado) para no bloquear ventas
-    resultado.exito = True
-    resultado.stockAnterior = 0
-    resultado.stockNuevo = 0
-    resultado.MensajeError = "Actualización de stock pendiente de implementación"
+    ' Construir datos POST en formato application/x-www-form-urlencoded
+    postData = "id_producto=" & idProducto & _
+               "&cantidad=" & cantidad & _
+               "&id_combinacion=" & idCombinacion
 
-    ActualizarStock = resultado
-    Exit Function
-
-    ' Código desactivado temporalmente (para Fase 2):
-    ' url = PS_API_BRIDGE_URL & "bridge.php?action=actualizar_stock"
-    ' postData = "{""id"":" & idProducto & ",""cantidad"":" & cantidad & "}"
-
-    EscribirLog "Actualizando stock - Producto: " & idProducto & ", Cantidad: -" & cantidad
-    EscribirLog "POST Data: " & postData
+    LogInfo "Actualizando stock - Producto: " & idProducto & _
+            " | Cantidad: " & cantidad & _
+            " | Combinacion: " & idCombinacion
 
     ' Crear objeto HTTP
     Set xmlHttp = CreateObject("MSXML2.ServerXMLHTTP.6.0")
@@ -237,26 +227,30 @@ Public Function ActualizarStock(ByVal idProducto As Long, ByVal cantidad As Long
 
     ' Realizar petición POST
     xmlHttp.Open "POST", url, False
-    xmlHttp.setRequestHeader "Content-Type", "application/json"
-    xmlHttp.setRequestHeader "Accept", "application/json"
+    xmlHttp.setRequestHeader "Content-Type", "application/x-www-form-urlencoded"
     xmlHttp.Send postData
 
-    ' Verificar respuesta
-    If xmlHttp.Status = 200 Then
-        responseText = xmlHttp.responseText
-        EscribirLog "Respuesta: " & responseText
+    ' Verificar respuesta HTTP
+    If xmlHttp.Status <> 200 Then
+        resultado.MensajeError = "Error HTTP: " & xmlHttp.Status
+        LogError resultado.MensajeError
+        ActualizarStock = resultado
+        Set xmlHttp = Nothing
+        Exit Function
+    End If
 
-        ' Parsear resultado
-        resultado = ParsearResultadoActualizacionJSON(responseText)
+    ' Obtener respuesta
+    responseText = xmlHttp.responseText
+    LogDebug "Respuesta stock update: " & Left(responseText, 200)
 
-        If resultado.exito Then
-            EscribirLog "Stock actualizado correctamente: " & resultado.stockAnterior & " -> " & resultado.stockNuevo
-        Else
-            EscribirLog "ERROR: No se pudo actualizar el stock - " & resultado.MensajeError
-        End If
+    ' Parsear resultado JSON
+    resultado = ParsearResultadoActualizacionJSON(responseText)
+
+    If resultado.exito Then
+        LogInfo "Stock actualizado OK - Anterior: " & resultado.stockAnterior & _
+                " | Nuevo: " & resultado.stockNuevo
     Else
-        resultado.MensajeError = "Error HTTP: " & xmlHttp.Status & " - " & xmlHttp.statusText
-        EscribirLog "ERROR HTTP: " & resultado.MensajeError
+        LogError "Error al actualizar stock: " & resultado.MensajeError
     End If
 
     Set xmlHttp = Nothing
@@ -265,8 +259,9 @@ Public Function ActualizarStock(ByVal idProducto As Long, ByVal cantidad As Long
 
 ErrorHandler:
     resultado.MensajeError = "Error: " & Err.Description
-    EscribirLog "ERROR en ActualizarStock: " & Err.Description
+    LogError "ERROR en ActualizarStock: " & Err.Description
     ActualizarStock = resultado
+    If Not xmlHttp Is Nothing Then Set xmlHttp = Nothing
 End Function
 
 '******************************************************************************
@@ -443,14 +438,47 @@ End Function
 '* PROPÓSITO: Parsea el resultado de una actualización de stock
 '******************************************************************************
 Private Function ParsearResultadoActualizacionJSON(ByVal jsonText As String) As ResultadoActualizacion
+    On Error Resume Next
+
     Dim resultado As ResultadoActualizacion
+    Dim dataContent As String
+    Dim posDataStart As Long
+    Dim posDataEnd As Long
+    Dim nivel As Integer
+    Dim i As Long
 
-    resultado.exito = (InStr(1, jsonText, """success"":true", vbTextCompare) > 0)
-    resultado.stockAnterior = ExtraerValorNumerico(jsonText, "old_stock")
-    resultado.stockNuevo = ExtraerValorNumerico(jsonText, "new_stock")
+    ' Verificar success usando ExtraerValorBooleano
+    resultado.exito = ExtraerValorBooleano(jsonText, "success")
 
-    If Not resultado.exito Then
-        resultado.MensajeError = ExtraerValorCadena(jsonText, "message")
+    If resultado.exito Then
+        ' Extraer contenido de "data" si existe (mismo patrón que búsqueda de productos)
+        posDataStart = InStr(1, jsonText, """data""", vbTextCompare)
+        If posDataStart > 0 Then
+            posDataStart = InStr(posDataStart, jsonText, "{")
+            If posDataStart > 0 Then
+                nivel = 1
+                For i = posDataStart + 1 To Len(jsonText)
+                    If Mid(jsonText, i, 1) = "{" Then nivel = nivel + 1
+                    If Mid(jsonText, i, 1) = "}" Then nivel = nivel - 1
+                    If nivel = 0 Then
+                        posDataEnd = i
+                        Exit For
+                    End If
+                Next i
+                dataContent = Mid(jsonText, posDataStart, posDataEnd - posDataStart + 1)
+            Else
+                dataContent = jsonText
+            End If
+        Else
+            dataContent = jsonText
+        End If
+
+        ' Extraer valores de stock (bridge.php usa "stock_anterior" y "stock_nuevo")
+        resultado.stockAnterior = ExtraerValorNumerico(dataContent, "stock_anterior")
+        resultado.stockNuevo = ExtraerValorNumerico(dataContent, "stock_nuevo")
+    Else
+        ' Si hay error, extraer mensaje
+        resultado.MensajeError = ExtraerValorCadena(jsonText, "mensaje")
         If resultado.MensajeError = "" Then
             resultado.MensajeError = ExtraerValorCadena(jsonText, "error")
         End If

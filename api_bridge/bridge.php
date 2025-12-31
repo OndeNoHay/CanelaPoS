@@ -63,10 +63,14 @@ try {
             handleInfoProducto();
             break;
 
+        case 'actualizar_stock':
+            handleActualizarStock();
+            break;
+
         default:
             responderError(400, 'Acción no válida', [
                 'accion_recibida' => $action,
-                'acciones_validas' => ['test', 'buscar_producto', 'obtener_stock', 'info_producto']
+                'acciones_validas' => ['test', 'buscar_producto', 'obtener_stock', 'info_producto', 'actualizar_stock']
             ]);
     }
 } catch (Exception $e) {
@@ -236,6 +240,79 @@ function handleInfoProducto() {
     } else {
         responderError(404, 'Producto no encontrado', [
             'id_producto' => $idProducto
+        ]);
+    }
+}
+
+/**
+ * Handler: Actualizar stock de un producto en PrestaShop
+ * Endpoint: POST /bridge.php?action=actualizar_stock
+ * Parámetros POST: id_producto, cantidad, id_combinacion (opcional)
+ */
+function handleActualizarStock() {
+    $inicio = microtime(true);
+
+    // Validar método HTTP
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        responderError(405, 'Método no permitido. Use POST', [
+            'metodo_recibido' => $_SERVER['REQUEST_METHOD']
+        ]);
+    }
+
+    // Validar parámetros
+    if (!isset($_POST['id_producto']) || !is_numeric($_POST['id_producto'])) {
+        responderError(400, 'Parámetro "id_producto" numérico requerido');
+    }
+
+    if (!isset($_POST['cantidad']) || !is_numeric($_POST['cantidad'])) {
+        responderError(400, 'Parámetro "cantidad" numérico requerido');
+    }
+
+    $idProducto = intval($_POST['id_producto']);
+    $cantidad = intval($_POST['cantidad']);
+    $idCombinacion = isset($_POST['id_combinacion']) ? intval($_POST['id_combinacion']) : 0;
+
+    // Determinar tipo de operación para log
+    $operacion = $cantidad < 0 ? 'DECREMENTO' : 'INCREMENTO';
+    $cantidadAbs = abs($cantidad);
+
+    registrarLog(
+        'STOCK_UPDATE',
+        $idProducto,
+        "Solicitud actualización stock: Producto=$idProducto, Combinacion=$idCombinacion, Operacion=$operacion, Cantidad=$cantidadAbs"
+    );
+
+    // Actualizar stock en PrestaShop
+    $resultado = actualizarStockEnPrestaShop($idProducto, $cantidad, $idCombinacion);
+
+    if ($resultado['success']) {
+        $tiempo = round((microtime(true) - $inicio) * 1000);
+        registrarLog(
+            'STOCK_UPDATE',
+            $idProducto,
+            "Stock actualizado: {$resultado['stock_anterior']} -> {$resultado['stock_nuevo']}",
+            $tiempo
+        );
+
+        responderExito([
+            'id_producto' => $idProducto,
+            'id_combinacion' => $idCombinacion,
+            'stock_anterior' => $resultado['stock_anterior'],
+            'stock_nuevo' => $resultado['stock_nuevo'],
+            'operacion' => $operacion,
+            'cantidad_modificada' => $cantidadAbs
+        ], $tiempo);
+    } else {
+        registrarLog(
+            'ERROR',
+            $idProducto,
+            "Error actualizando stock: {$resultado['error']}"
+        );
+
+        responderError(500, 'Error al actualizar stock', [
+            'id_producto' => $idProducto,
+            'id_combinacion' => $idCombinacion,
+            'error' => $resultado['error']
         ]);
     }
 }
@@ -684,6 +761,104 @@ function responderError($httpCode, $mensaje, $detalles = null) {
 
     echo json_encode($respuesta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+// ========================================================================
+// FUNCIONES DE ACTUALIZACIÓN DE STOCK
+// ========================================================================
+
+/**
+ * Actualizar stock de un producto en PrestaShop
+ *
+ * @param int $idProducto ID del producto en PrestaShop
+ * @param int $cantidad Cantidad a sumar/restar (negativo para decrementar)
+ * @param int $idCombinacion ID de combinación (0 para producto sin combinaciones)
+ * @return array ['success' => bool, 'stock_anterior' => int, 'stock_nuevo' => int, 'error' => string]
+ */
+function actualizarStockEnPrestaShop($idProducto, $cantidad, $idCombinacion = 0) {
+    try {
+        // 1. Encontrar el id_stock_available correcto usando filtros
+        $filtro = "filter[id_product]=$idProducto";
+        if ($idCombinacion > 0) {
+            $filtro .= "&filter[id_product_attribute]=$idCombinacion";
+        } else {
+            // Producto sin combinaciones: id_product_attribute = 0
+            $filtro .= "&filter[id_product_attribute]=0";
+        }
+
+        registrarLog('DEBUG', $idProducto, "Buscando stock_available con filtro: $filtro");
+
+        $resultado = callPrestaShop("stock_availables?$filtro&display=full");
+
+        if ($resultado['code'] != 200) {
+            return [
+                'success' => false,
+                'error' => "Error al obtener stock_available: HTTP {$resultado['code']}"
+            ];
+        }
+
+        // 2. Parsear respuesta XML
+        $xml = simplexml_load_string($resultado['data']);
+
+        if (!isset($xml->stock_availables->stock_available)) {
+            return [
+                'success' => false,
+                'error' => "No se encontró stock_available para producto=$idProducto, combinacion=$idCombinacion"
+            ];
+        }
+
+        $stockAvailable = $xml->stock_availables->stock_available;
+        $idStockAvailable = (int)$stockAvailable->id;
+        $stockActual = (int)$stockAvailable->quantity;
+
+        registrarLog('DEBUG', $idProducto, "Stock actual: $stockActual (id_stock_available=$idStockAvailable)");
+
+        // 3. Calcular nuevo stock
+        $stockNuevo = $stockActual + $cantidad;
+
+        // Validar que no sea negativo
+        if ($stockNuevo < 0) {
+            return [
+                'success' => false,
+                'error' => "Stock insuficiente. Actual: $stockActual, Solicitado: " . abs($cantidad)
+            ];
+        }
+
+        // 4. Construir XML para actualización
+        $xmlUpdate = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><prestashop></prestashop>');
+        $stockElement = $xmlUpdate->addChild('stock_available');
+        $stockElement->addChild('id', $idStockAvailable);
+        $stockElement->addChild('id_product', $idProducto);
+        $stockElement->addChild('id_product_attribute', $idCombinacion);
+        $stockElement->addChild('quantity', $stockNuevo);
+
+        $xmlData = $xmlUpdate->asXML();
+
+        registrarLog('DEBUG', $idProducto, "Enviando PUT a stock_availables/$idStockAvailable con quantity=$stockNuevo");
+
+        // 5. Enviar PUT a PrestaShop
+        $resultadoPut = callPrestaShop("stock_availables/$idStockAvailable", 'PUT', $xmlData);
+
+        if ($resultadoPut['code'] != 200) {
+            return [
+                'success' => false,
+                'error' => "Error al actualizar stock: HTTP {$resultadoPut['code']}"
+            ];
+        }
+
+        // 6. Retornar éxito con valores
+        return [
+            'success' => true,
+            'stock_anterior' => $stockActual,
+            'stock_nuevo' => $stockNuevo
+        ];
+
+    } catch (Exception $e) {
+        return [
+            'success' => false,
+            'error' => $e->getMessage()
+        ];
+    }
 }
 
 // ========================================================================

@@ -391,7 +391,7 @@ Begin VB.Form Venta
          _ExtentX        =   2566
          _ExtentY        =   661
          _Version        =   393216
-         Format          =   144506881
+         Format          =   52559873
          CurrentDate     =   38197
       End
       Begin VB.CommandButton cmdventa 
@@ -1041,13 +1041,13 @@ Private Sub CmdTicketRegalo_Click()
 End Sub
 
 Private Sub DtPicker1_Change()
-    FechaTrabajo = HaceFecha(DTPicker1.Value)
+    FechaTrabajo = HaceFecha(DtPicker1.Value)
     If FechaTrabajo <> Date Then Timer2.Enabled = False
     'MsgBox FechaTrabajo
 End Sub
 
 Private Sub dtpicker1_Click()
-    FechaTrabajo = HaceFecha(DTPicker1.Value)
+    FechaTrabajo = HaceFecha(DtPicker1.Value)
    ' MsgBox FechaTrabajo
     'Calendar1.Visible = False
     'txtfecha = FechaTrabajo
@@ -1097,7 +1097,7 @@ Private Sub CmbBorraArt_Click()
             cmbdescu(1) = ""
             txtprefinal(1) = ""
    NumArtVend = 0
-    txtTotal.Text = ""
+    txttotal.Text = ""
     VentaApartado = False
     cmdapartado.Enabled = True
     
@@ -1379,7 +1379,7 @@ PlayWave App.Path & "\ringin.wav"
 If chkPago.Value = 1 Then
     If OptTodo(1).Value = 0 Then
         TxtParte.Text = 0
-        PagoTarjeta = txtTotal.Text
+        PagoTarjeta = txttotal.Text
         lbparte.Visible = False
         TxtParte.Visible = False
         Header.FormaPago = "Tarjeta"
@@ -1769,12 +1769,12 @@ Private Sub MarcaVenta()
         'Header.Nombre = !Nombre & " " & !apellido
         If chkPago.Value = 0 Then
             
-            !total = txtTotal
+            !total = txttotal
         ElseIf chkPago.Value = 1 Then
             If OptTodo(0).Value = True Then
                 !total = 0
             ElseIf OptTodo(1).Value = True Then
-                !total = txtTotal
+                !total = txttotal
             End If
         End If
         
@@ -1791,7 +1791,7 @@ Private Sub MarcaVenta()
             MueveCaja !IdVenta, FechaTrabajo, !total, !Tarjeta
             Header.Modo = "Venta"
         ElseIf Modo = "Apartado" Then
-            Y = CCur(txtTotal.Text) - CCur(txtentrega.Text)
+            Y = CCur(txttotal.Text) - CCur(txtentrega.Text)
             !total = Y
             !ACuenta = CCur(txtentrega.Text)
             Header.ACuenta = CCur(txtentrega.Text)
@@ -1921,9 +1921,9 @@ Private Sub Form_Load()
     FechaTrabajo = HaceFecha(Now)
        ' MsgBox FechaTrabajo
     ' FechaTrabajo
-    DTPicker1.Value = Now
+    DtPicker1.Value = Now
     Me.Show
-    txtbusca.SetFocus
+    TxtBusca.SetFocus
     Modo = "Venta"
     'Calendar1.Value = Now
     'Set rsarticulo = bdtienda.OpenRecordset("articulos")
@@ -1940,7 +1940,7 @@ Public Sub PoneArticulos()
         txttipo(NumArtVend).Text = "" & !Tipo
         txtprecio(NumArtVend).Text = "" & !PrecioVenta
         txtcolor(NumArtVend).Text = "" & !Color
-        txttalla(NumArtVend).Text = "" & !talla
+        txttalla(NumArtVend).Text = "" & !Talla
         If cmbdescu(NumArtVend).Text <> "" Then
             txtprefinal(NumArtVend).Text = txtprecio(NumArtVend).Text * (1 - (cmbdescu(NumArtVend).Text * 100))
         Else
@@ -1985,7 +1985,7 @@ Public Sub PoneArticuloGenerico(ByVal Dumprecio As Currency)
         txttipo(NumArtVend).Text = "" & !Tipo
         txtprecio(NumArtVend).Text = Dumprecio
         txtcolor(NumArtVend).Text = "" & !Color
-        txttalla(NumArtVend).Text = "" & !talla
+        txttalla(NumArtVend).Text = "" & !Talla
         If cmbdescu(NumArtVend).Text <> "" Then
             txtprefinal(NumArtVend).Text = txtprecio(NumArtVend).Text * (1 - (cmbdescu(NumArtVend).Text * 100))
         Else
@@ -2114,25 +2114,25 @@ Private Sub Timer3_Timer()
 End Sub
 
 Private Sub TxtBusca_Click()
-        txtbusca.SelStart = 0
-        txtbusca.SelLength = Len(txtbusca.Text)
+        TxtBusca.SelStart = 0
+        TxtBusca.SelLength = Len(TxtBusca.Text)
 
 End Sub
 
 Private Sub TxtBusca_GotFocus()
-        txtbusca.SelStart = 0
-        txtbusca.SelLength = Len(txtbusca.Text)
+        TxtBusca.SelStart = 0
+        TxtBusca.SelLength = Len(TxtBusca.Text)
 
 End Sub
 
 Private Sub TxtBusca_KeyPress(KeyAscii As Integer)
     If KeyAscii = 13 Then
-        If Len(txtbusca.Text) < 5 Then Exit Sub
-        CodigoBusca = Left(txtbusca.Text, 5)
+        If Len(TxtBusca.Text) < 5 Then Exit Sub
+        CodigoBusca = Left(TxtBusca.Text, 5)
         cmdarticulo_Click
-        txtbusca.Text = ""
-        txtbusca.SelStart = 0
-        txtbusca.SelLength = Len(txtbusca.Text)
+        TxtBusca.Text = ""
+        TxtBusca.SelStart = 0
+        TxtBusca.SelLength = Len(TxtBusca.Text)
     End If
 End Sub
 
@@ -2185,16 +2185,16 @@ Private Sub HaceSumaTotal()
         End If
     Next i
     If VentaApartado = True Then
-        txtTotal.Text = CCur(SumaTotal) - CCur(txtentrega)
+        txttotal.Text = CCur(SumaTotal) - CCur(txtentrega)
     Else
-        txtTotal.Text = CCur(SumaTotal)
+        txttotal.Text = CCur(SumaTotal)
     End If
 
 End Sub
 
 Private Sub TxtParte_Change()
     If SumaTotal = 0 Then Exit Sub
-    txtTotal = SumaTotal - Val(TxtParte) - Val(txtentrega)
+    txttotal = SumaTotal - Val(TxtParte) - Val(txtentrega)
     PagoTarjeta = Val(TxtParte)
 End Sub
 
@@ -2292,7 +2292,7 @@ Private Sub A�adeArticulosApartados()
           txttipo(dummy).Text = "" & !Tipo
           txtprecio(dummy).Text = PreFinalApart(dummy - 1)
           txtcolor(dummy).Text = "" & !Color
-          txttalla(dummy).Text = "" & !talla
+          txttalla(dummy).Text = "" & !Talla
           If cmbdescu(dummy).Text <> "" Then
               txtprefinal(dummy).Text = txtprecio(dummy).Text * (1 - (cmbdescu(dummy).Text * 100))
           Else
@@ -2306,7 +2306,7 @@ Private Sub A�adeArticulosApartados()
         Loop
     End With
     HaceSumaTotal
-dummyx = Val(txtentrega) + Val(txtTotal)
+dummyx = Val(txtentrega) + Val(txttotal)
 'cmdapartado.Enabled = False
 End Sub
 
@@ -2327,7 +2327,7 @@ Private Sub ComboTallas_Click(Index As Integer)
     Dim idCombinacion As Long
     Dim nombreTalla As String
     Dim Rs As Recordset
-    Dim idArt As Long
+    Dim Idart As Long
 
     ' Obtener producto del cache
     productoPS = GetUltimoProductoEncontrado()
@@ -2340,30 +2340,30 @@ Private Sub ComboTallas_Click(Index As Integer)
     tallaIndex = ComboTallas(Index).ListIndex + 1
     If tallaIndex > productoPS.NumCombinaciones Then Exit Sub
 
-    idCombinacion = productoPS.Combinaciones(tallaIndex).IdCombinacion
+    idCombinacion = productoPS.Combinaciones(tallaIndex).idCombinacion
     nombreTalla = productoPS.Combinaciones(tallaIndex).Talla
 
     ' Obtener ID del articulo en esta fila
-    idArt = CLng(txtidarticulo(Index).Text)
+    Idart = CLng(txtidarticulo(Index).Text)
 
     ' Actualizar BD con la talla y el id_combinacion
-    Set Rs = bdtienda.OpenRecordset("SELECT * FROM articulos WHERE idart = " & idArt)
+    Set Rs = bdtienda.OpenRecordset("SELECT * FROM articulos WHERE idart = " & Idart)
     If Not Rs.EOF Then
         Rs.Edit
-        Rs!talla = nombreTalla
-        Rs!extra = "PS_ID:" & productoPS.IdProducto & "_" & idCombinacion & " [COMBO-" & nombreTalla & "]"
+        Rs!Talla = nombreTalla
+        Rs!extra = "PS_ID:" & productoPS.idProducto & "_" & idCombinacion & " [COMBO-" & nombreTalla & "]"
         Rs.Update
 
         ' Actualizar campo visual
         txttalla(Index).Text = nombreTalla
 
-        ModuloLog.LogDebug "Talla seleccionada: " & nombreTalla & " (ID Combo: " & idCombinacion & ") para art. " & idArt
+        ModuloLog.LogDebug "Talla seleccionada: " & nombreTalla & " (ID Combo: " & idCombinacion & ") para art. " & Idart
     End If
     Rs.Close
     Set Rs = Nothing
 
     ' Actualizar registro de sincronizacion con el id_combinacion correcto
-    ActualizarIdCombinacionSincronizacion idArt, idCombinacion
+    ActualizarIdCombinacionSincronizacion Idart, idCombinacion
 
     Exit Sub
 

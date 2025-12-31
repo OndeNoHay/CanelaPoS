@@ -10,21 +10,21 @@ Option Explicit
 
 '--- Constantes de configuración ---
 Private Const PS_API_BRIDGE_URL As String = "https://www.canelamoda.es/api_bridge/"
-Private Const PS_API_TIMEOUT As Long = 30000  ' 30 segundos
+Private Const PS_API_TIMEOUT As Long = 20000  ' 30 segundos
 
 '--- Tipos de datos ---
 
 ' Combinacion (talla) de un producto
 Type CombinacionProducto
-    IdCombinacion As Long
+    idCombinacion As Long
     Talla As String
-    Stock As Long
+    stock As Long
     Disponible As Boolean
 End Type
 
 ' Producto de PrestaShop
 Type ProductoPrestaShop
-    IdProducto As Long
+    idProducto As Long
     Referencia As String
     EAN As String
     Nombre As String
@@ -34,9 +34,9 @@ Type ProductoPrestaShop
     PorcentajeIVA As Double
     StockDisponible As Long
     TieneCombinaciones As Boolean
-    IdCombinacion As Long
+    idCombinacion As Long
     Activo As Boolean
-    Encontrado As Boolean
+    encontrado As Boolean
     MensajeError As String
     ' Combinaciones (tallas)
     Combinaciones(1 To 50) As CombinacionProducto  ' Maximo 50 tallas por producto
@@ -44,9 +44,9 @@ Type ProductoPrestaShop
 End Type
 
 Type ResultadoActualizacion
-    Exito As Boolean
-    StockAnterior As Long
-    StockNuevo As Long
+    exito As Boolean
+    stockAnterior As Long
+    stockNuevo As Long
     MensajeError As String
 End Type
 
@@ -66,10 +66,10 @@ Public Function BuscarProductoPorCodigo(ByVal codigo As String) As ProductoPrest
     Dim producto As ProductoPrestaShop
 
     ' Inicializar producto
-    producto.Encontrado = False
+    producto.encontrado = False
     producto.TieneCombinaciones = False
-    producto.IdProducto = 0
-    producto.IdCombinacion = 0
+    producto.idProducto = 0
+    producto.idCombinacion = 0
 
     ' Validar código
     If Trim(codigo) = "" Then
@@ -108,8 +108,8 @@ Public Function BuscarProductoPorCodigo(ByVal codigo As String) As ProductoPrest
         ' Parsear JSON response
         producto = ParsearProductoJSON(responseText)
 
-        If producto.Encontrado Then
-            EscribirLog "Producto encontrado: " & producto.Nombre & " (ID: " & producto.IdProducto & ")"
+        If producto.encontrado Then
+            EscribirLog "Producto encontrado: " & producto.Nombre & " (ID: " & producto.idProducto & ")"
         Else
             EscribirLog "Producto no encontrado en PrestaShop"
         End If
@@ -198,9 +198,9 @@ Public Function ActualizarStock(ByVal idProducto As Long, ByVal cantidad As Long
     Dim responseText As String
     Dim resultado As ResultadoActualizacion
 
-    resultado.Exito = False
-    resultado.StockAnterior = 0
-    resultado.StockNuevo = 0
+    resultado.exito = False
+    resultado.stockAnterior = 0
+    resultado.stockNuevo = 0
 
     ' Validar parámetros
     If idProducto <= 0 Or cantidad <= 0 Then
@@ -216,9 +216,9 @@ Public Function ActualizarStock(ByVal idProducto As Long, ByVal cantidad As Long
     EscribirLog "Producto: " & idProducto & ", Cantidad a decrementar: " & cantidad
 
     ' Marcar como éxito (simulado) para no bloquear ventas
-    resultado.Exito = True
-    resultado.StockAnterior = 0
-    resultado.StockNuevo = 0
+    resultado.exito = True
+    resultado.stockAnterior = 0
+    resultado.stockNuevo = 0
     resultado.MensajeError = "Actualización de stock pendiente de implementación"
 
     ActualizarStock = resultado
@@ -249,8 +249,8 @@ Public Function ActualizarStock(ByVal idProducto As Long, ByVal cantidad As Long
         ' Parsear resultado
         resultado = ParsearResultadoActualizacionJSON(responseText)
 
-        If resultado.Exito Then
-            EscribirLog "Stock actualizado correctamente: " & resultado.StockAnterior & " -> " & resultado.StockNuevo
+        If resultado.exito Then
+            EscribirLog "Stock actualizado correctamente: " & resultado.stockAnterior & " -> " & resultado.stockNuevo
         Else
             EscribirLog "ERROR: No se pudo actualizar el stock - " & resultado.MensajeError
         End If
@@ -280,7 +280,7 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
 
     On Error Resume Next
 
-    producto.Encontrado = False
+    producto.encontrado = False
 
     ' Verificar si hay éxito en la respuesta
     ' NOTA: "success" es un booleano (true/false) sin comillas en JSON
@@ -351,7 +351,7 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
             dataContent = Mid(jsonText, posDataStart, posDataEnd - posDataStart + 1)
 
             ' Ahora parsear usando dataContent
-            producto.Encontrado = True
+            producto.encontrado = True
         Else
             ' No hay contenido en data
             producto.MensajeError = "Respuesta sin datos"
@@ -361,13 +361,13 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
     Else
         ' No hay campo "data", intentar parsear directamente
         dataContent = jsonText
-        producto.Encontrado = True
+        producto.encontrado = True
     End If
 
     ' Parsear campos usando dataContent
 
     ' Extraer ID del producto (bridge.php usa "id")
-    producto.IdProducto = ExtraerValorNumerico(dataContent, "id")
+    producto.idProducto = ExtraerValorNumerico(dataContent, "id")
 
     ' Extraer referencia
     producto.Referencia = ExtraerValorCadena(dataContent, "reference")
@@ -405,7 +405,7 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
         If producto.NumCombinaciones > 0 Then
             ' Usar la primera combinación como referencia temporal
             ' (el usuario deberá seleccionar la talla específica en el formulario)
-            producto.IdCombinacion = producto.Combinaciones(1).IdCombinacion
+            producto.idCombinacion = producto.Combinaciones(1).idCombinacion
             LogInfo "Producto con " & producto.NumCombinaciones & " tallas disponibles"
         Else
             LogWarning "Producto tiene combinaciones pero ninguna con stock > 0"
@@ -417,9 +417,9 @@ Private Function ParsearProductoJSON(ByVal jsonText As String) As ProductoPresta
 
     ' DEBUG: Verificar que el producto se ha parseado correctamente
     If ModoDebug Then
-        ModuloLog.EscribirLog "PARSER - Producto parseado: ID=" & producto.IdProducto & _
+        ModuloLog.EscribirLog "PARSER - Producto parseado: ID=" & producto.idProducto & _
             " | Nombre=" & producto.Nombre & " | Precio=" & producto.PrecioConIVA & _
-            " | Stock=" & producto.StockDisponible & " | Encontrado=" & producto.Encontrado, LOG_DEBUG
+            " | Stock=" & producto.StockDisponible & " | Encontrado=" & producto.encontrado, LOG_DEBUG
     End If
 
     ParsearProductoJSON = producto
@@ -445,11 +445,11 @@ End Function
 Private Function ParsearResultadoActualizacionJSON(ByVal jsonText As String) As ResultadoActualizacion
     Dim resultado As ResultadoActualizacion
 
-    resultado.Exito = (InStr(1, jsonText, """success"":true", vbTextCompare) > 0)
-    resultado.StockAnterior = ExtraerValorNumerico(jsonText, "old_stock")
-    resultado.StockNuevo = ExtraerValorNumerico(jsonText, "new_stock")
+    resultado.exito = (InStr(1, jsonText, """success"":true", vbTextCompare) > 0)
+    resultado.stockAnterior = ExtraerValorNumerico(jsonText, "old_stock")
+    resultado.stockNuevo = ExtraerValorNumerico(jsonText, "new_stock")
 
-    If Not resultado.Exito Then
+    If Not resultado.exito Then
         resultado.MensajeError = ExtraerValorCadena(jsonText, "message")
         If resultado.MensajeError = "" Then
             resultado.MensajeError = ExtraerValorCadena(jsonText, "error")
@@ -688,21 +688,21 @@ Private Function ParsearCombinaciones(ByVal jsonText As String, ByRef combos() A
         objetoCombo = Mid(jsonText, posStart, posEnd - posStart + 1)
 
         ' Parsear campos de la combinación
-        combo.IdCombinacion = ExtraerValorNumerico(objetoCombo, "id_combinacion")
-        If combo.IdCombinacion = 0 Then
-            combo.IdCombinacion = ExtraerValorNumerico(objetoCombo, "id_product_attribute")
+        combo.idCombinacion = ExtraerValorNumerico(objetoCombo, "id_combinacion")
+        If combo.idCombinacion = 0 Then
+            combo.idCombinacion = ExtraerValorNumerico(objetoCombo, "id_product_attribute")
         End If
         combo.Talla = ExtraerValorCadena(objetoCombo, "talla")
-        combo.Stock = ExtraerValorNumerico(objetoCombo, "stock")
+        combo.stock = ExtraerValorNumerico(objetoCombo, "stock")
         combo.Disponible = ExtraerValorBooleano(objetoCombo, "disponible")
 
         ' Solo agregar si tiene stock > 0 (requisito del usuario)
-        If combo.Stock > 0 Then
+        If combo.stock > 0 Then
             numCombos = numCombos + 1
             combos(numCombos) = combo
 
             If ModoDebug Then
-                LogDebug "Combinacion parseada: " & combo.Talla & " (ID: " & combo.IdCombinacion & ", Stock: " & combo.Stock & ")"
+                LogDebug "Combinacion parseada: " & combo.Talla & " (ID: " & combo.idCombinacion & ", Stock: " & combo.stock & ")"
             End If
         End If
 

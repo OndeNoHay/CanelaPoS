@@ -67,10 +67,14 @@ try {
             handleActualizarStock();
             break;
 
+        case 'buscar_productos_rango':
+            handleBuscarProductosRango();
+            break;
+
         default:
             responderError(400, 'Acción no válida', [
                 'accion_recibida' => $action,
-                'acciones_validas' => ['test', 'buscar_producto', 'obtener_stock', 'info_producto', 'actualizar_stock']
+                'acciones_validas' => ['test', 'buscar_producto', 'obtener_stock', 'info_producto', 'actualizar_stock', 'buscar_productos_rango']
             ]);
     }
 } catch (Exception $e) {
@@ -324,6 +328,96 @@ function handleActualizarStock() {
             'linea' => $e->getLine()
         ]);
     }
+}
+
+/**
+ * Buscar productos por rango de IDs
+ * GET /bridge.php?action=buscar_productos_rango&id_inicio=1&id_fin=100
+ * Retorna solo productos activos y con stock > 0
+ */
+function handleBuscarProductosRango() {
+    $inicio = microtime(true);
+
+    // Validar parámetros
+    if (!isset($_GET['id_inicio']) || !is_numeric($_GET['id_inicio'])) {
+        responderError(400, 'Parámetro "id_inicio" numérico requerido');
+    }
+
+    if (!isset($_GET['id_fin']) || !is_numeric($_GET['id_fin'])) {
+        responderError(400, 'Parámetro "id_fin" numérico requerido');
+    }
+
+    $idInicio = intval($_GET['id_inicio']);
+    $idFin = intval($_GET['id_fin']);
+
+    // Validar rango
+    if ($idFin < $idInicio) {
+        responderError(400, 'El id_fin debe ser mayor o igual que id_inicio', [
+            'id_inicio' => $idInicio,
+            'id_fin' => $idFin
+        ]);
+    }
+
+    // Limitar el rango a 500 productos máximo para evitar timeouts
+    if (($idFin - $idInicio) > 500) {
+        responderError(400, 'El rango máximo permitido es de 500 productos', [
+            'id_inicio' => $idInicio,
+            'id_fin' => $idFin,
+            'rango_solicitado' => ($idFin - $idInicio + 1)
+        ]);
+    }
+
+    registrarLog('BUSQUEDA_RANGO', "$idInicio-$idFin", "Buscando productos del ID $idInicio al $idFin");
+
+    $productos = [];
+    $encontrados = 0;
+    $errores = 0;
+
+    // Iterar sobre el rango de IDs
+    for ($idProducto = $idInicio; $idProducto <= $idFin; $idProducto++) {
+        try {
+            $producto = obtenerProductoCompleto($idProducto);
+
+            // Si el producto existe, está activo y tiene stock
+            if ($producto && $producto['activo'] && $producto['stock'] > 0) {
+                // Si tiene combinaciones, solo incluir las que tienen stock
+                if ($producto['tiene_combinaciones'] && !empty($producto['combinaciones'])) {
+                    // Filtrar combinaciones con stock > 0
+                    $combosConStock = array_filter($producto['combinaciones'], function($combo) {
+                        return $combo['stock'] > 0;
+                    });
+
+                    if (!empty($combosConStock)) {
+                        $producto['combinaciones'] = array_values($combosConStock);
+                        $productos[] = $producto;
+                        $encontrados++;
+                    }
+                } else {
+                    // Producto estándar con stock
+                    $productos[] = $producto;
+                    $encontrados++;
+                }
+            }
+        } catch (Exception $e) {
+            $errores++;
+            registrarLog('ERROR', "Producto ID $idProducto", "Error: " . $e->getMessage());
+        }
+    }
+
+    $tiempo = round((microtime(true) - $inicio) * 1000);
+    registrarLog('BUSQUEDA_RANGO', "$idInicio-$idFin",
+        "Búsqueda completada: $encontrados productos encontrados, $errores errores", $tiempo);
+
+    responderExito([
+        'productos' => $productos,
+        'total_encontrados' => $encontrados,
+        'rango_consultado' => [
+            'id_inicio' => $idInicio,
+            'id_fin' => $idFin,
+            'total_ids' => ($idFin - $idInicio + 1)
+        ],
+        'errores' => $errores
+    ], $tiempo);
 }
 
 // ========================================================================

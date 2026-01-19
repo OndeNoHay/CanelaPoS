@@ -29,13 +29,13 @@ Begin VB.Form FrmEtiquetas
          Width           =   13215
       End
    End
-   Begin VB.CommandButton Command3 
-      Caption         =   "Command3"
-      Height          =   255
-      Left            =   7320
+   Begin VB.CommandButton Command3
+      Caption         =   "Buscar en PrestaShop"
+      Height          =   495
+      Left            =   120
       TabIndex        =   23
-      Top             =   7320
-      Width           =   1215
+      Top             =   7080
+      Width           =   2295
    End
    Begin VB.TextBox Text1 
       Height          =   375
@@ -72,7 +72,7 @@ Begin VB.Form FrmEtiquetas
       Width           =   1575
    End
    Begin VB.Frame Frame3 
-      Caption         =   "Intervalo Impresión"
+      Caption         =   "Intervalo Impresiï¿½n"
       Height          =   1335
       Left            =   9600
       TabIndex        =   13
@@ -129,7 +129,7 @@ Begin VB.Form FrmEtiquetas
       End
    End
    Begin VB.Frame Frame2 
-      Caption         =   "Tamaño Etiqueta"
+      Caption         =   "Tamaï¿½o Etiqueta"
       Height          =   1335
       Left            =   0
       TabIndex        =   7
@@ -171,7 +171,7 @@ Begin VB.Form FrmEtiquetas
       End
    End
    Begin VB.Frame Frame1 
-      Caption         =   "Condiciones Impresión"
+      Caption         =   "Condiciones Impresiï¿½n"
       Height          =   1335
       Left            =   1920
       TabIndex        =   1
@@ -186,7 +186,7 @@ Begin VB.Form FrmEtiquetas
          Width           =   855
       End
       Begin VB.CheckBox chknum 
-         Caption         =   "Número de Etiquetas:"
+         Caption         =   "Nï¿½mero de Etiquetas:"
          Height          =   255
          Left            =   120
          TabIndex        =   20
@@ -252,7 +252,7 @@ Begin VB.Form FrmEtiquetas
       End
    End
    Begin VB.CommandButton Command2 
-      Caption         =   "imprime con código"
+      Caption         =   "imprime con cï¿½digo"
       Height          =   615
       Left            =   10800
       TabIndex        =   0
@@ -279,12 +279,29 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+
+' Tipo para cada etiqueta a imprimir (expande combinaciones)
+Private Type EtiquetaImpresion
+    idProducto As Long
+    EAN13 As String
+    NombreProducto As String
+    Talla As String
+    PrecioConIVA As Currency
+    idCombinacion As Long
+End Type
+
 Dim Numetiqhor As Integer
 Dim Numetiqver As Integer
 Dim AltoEtiq, AnchoEtiq As Integer
 Dim RsArtImpr As Recordset
 Dim PasaPrimerNum As Boolean
 Dim MargenSuperior As Integer
+
+' Variables para productos de PrestaShop
+Dim productosPS() As ProductoPrestaShop
+Dim numProductosPS As Integer
+Dim etiquetasParaImprimir() As EtiquetaImpresion
+Dim numEtiquetas As Integer
 
 Private Sub Check1_Click()
 If Check1.Value = 1 Then
@@ -309,140 +326,113 @@ Private Sub Command1_Click()
 ImprimeEtiquetas
 End Sub
 Private Sub ImprimeEtiquetas()
-Dim Contahoriz, Contaverti As Integer
-Dim NumImpresa As Integer
-Dim PrimerArt, UltimoArt As Long
-Dim NumParaImpr As Integer
+    Dim Contahoriz, Contaverti As Integer
+    Dim NumImpresa As Integer
+    Dim indiceEtiqueta As Integer
 
-On Error GoTo sehodio
+    On Error GoTo sehodio
 
-PrimerArt = Val(TxtPrimero)
-UltimoArt = Val(TxtUltimo)
-'NumParaImpr = UltimoArt - PrimerArt
+    ' Verificar que hay etiquetas para imprimir
+    If numEtiquetas = 0 Then
+        MsgBox "No hay etiquetas para imprimir. Primero debe buscar productos en PrestaShop.", vbExclamation
+        Exit Sub
+    End If
 
-With RsArtImpr
-    .MoveFirst
-    Do Until !Idart = PrimerArt
-        .MoveNext
-    Loop
-    
+    ' Configurar dimensiones de etiquetas
+    AnchoEtiq = Cmbancho
+    AltoEtiq = Cmbalto
 
-AnchoEtiq = Cmbancho
-AltoEtiq = Cmbalto
+    Numetiqver = Int(297 / AltoEtiq)
+    Numetiqhor = Int(210 / AnchoEtiq)
+    Contahoriz = 0
+    Contaverti = 0
 
-Numetiqver = Int(297 / AltoEtiq)
-Numetiqhor = Int(210 / AnchoEtiq)
-Contahoriz = 0
-Contaverti = 0
+    Dim x, Y As Integer
+    x = 2
+    Y = MargenSuperior
 
-Dim x, Y As Integer
-x = 2
-Y = MargenSuperior
+    ' Configurar posiciÃ³n inicial si se especifica
+    If Check1.Value = 1 Then
+        Contahoriz = Val(cmbcolumna.Text) - 1
+        Contaverti = Val(Cmbfila.Text) - 1
+        For i = 1 To Contahoriz
+            x = x + AnchoEtiq
+        Next i
+        For i = 1 To Contaverti
+            Y = Y + AltoEtiq
+        Next i
+    End If
 
-If Check1.Value = 1 Then
-    Contahoriz = Val(cmbcolumna.Text) - 1
-    Contaverti = Val(Cmbfila.Text) - 1
-    For i = 1 To Contahoriz
-        x = x + AnchoEtiq
-    Next i
-    For i = 1 To Contaverti
-        Y = Y + AltoEtiq
-    Next i
-End If
-'MsgBox (Printer.FontSize)
-'Printer.PrintQuality = -1
-Printer.ScaleMode = 6
-Do Until Contaverti = Numetiqver
-    Do Until Contahoriz = Numetiqhor
-        'Printer.CurrentX = x
-        'Printer.CurrentY = y
-        Printer.FontSize = 10
-        Printer.FontName = "IDAutomationHC39M"
-        Printer.CurrentX = x + 22
-        Printer.CurrentY = Y
-        Dim Preciosindecimal As String
-        Preciosindecimal = !PrecioCompra
-        If InStr(1, Preciosindecimal, ",") > 0 Or InStr(1, Preciosindecimal, ".") > 0 Then
-            Preciosindecimal = Replace(Preciosindecimal, ",", "")
-        End If
-        
-        Printer.Print "*" & !Idart & Preciosindecimal & (Int(Rnd * 89) + 10) & "*" 'Contahoriz & Contaverti
-        
-        Printer.FontName = "Arial"
-        Printer.FontSize = 8
-        Printer.CurrentX = x + 42
-        Printer.CurrentY = Y
-        Printer.Print "Code: " & Left(!codigo, 3)
-         
-        Printer.FontName = "Arial"
+    ' Configurar impresora A4
+    Printer.ScaleMode = 6  ' MilÃ­metros
+    NumImpresa = 0
+    indiceEtiqueta = 1
+
+    ' Imprimir todas las etiquetas
+    Do While indiceEtiqueta <= numEtiquetas
+        ' Imprimir logo de Canela (esquina superior izquierda)
         Printer.PaintPicture Image1.Picture, x, Y, 10, 10
-        
-        'Printer.CurrentX = x + 12
-        'Printer.CurrentY = y + 5
-        If !deposito = True Then
-            Printer.FillColor = vbRed
-            Printer.Circle (x + 14, Y + 5), 2, vbRed
-        End If
-        
+
+        ' Imprimir cÃ³digo de barras EAN13 (parte superior derecha)
+        ' NOTA: Se requiere fuente de cÃ³digos de barras EAN13 instalada en el sistema
+        ' Si no estÃ¡ disponible, se mostrarÃ¡ como texto normal
+        Printer.FontSize = 8
+        Printer.FontName = "IDAutomationHC39M"  ' O fuente EAN13 si estÃ¡ disponible
+        Printer.CurrentX = x + 20
+        Printer.CurrentY = Y
+        ' Para EAN13, algunos sistemas usan * como delimitadores, otros no
+        Printer.Print "*" & etiquetasParaImprimir(indiceEtiqueta).EAN13 & "*"
+
+        ' Imprimir nombre del producto (debajo del logo)
+        Printer.FontName = "Arial"
+        Printer.FontSize = 7
         Printer.CurrentX = x
         Printer.CurrentY = Y + 12
-        Printer.Print !Tipo & "  " & !Color & "  " & !Talla & "  " & !extra '"Etiqueta vertical nº" & Contaverti
-        
+        Dim nombreTruncado As String
+        nombreTruncado = Left(etiquetasParaImprimir(indiceEtiqueta).NombreProducto, 30)
+        If etiquetasParaImprimir(indiceEtiqueta).Talla <> "" Then
+            Printer.Print nombreTruncado & " - " & etiquetasParaImprimir(indiceEtiqueta).Talla
+        Else
+            Printer.Print nombreTruncado
+        End If
+
+        ' Imprimir precio con IVA (parte inferior)
         Printer.CurrentX = x
-        Printer.CurrentY = Y + 15
+        Printer.CurrentY = Y + 17
         Printer.FontSize = 12
-        Printer.Print "PVP: " & Format(!PrecioVenta, "#00.00#") & "€" '"Etiqueta horizontal nº " & Contahoriz
-        
-        Printer.CurrentX = x + 30
-        Printer.CurrentY = Y + 15
-        Printer.FontSize = 8
-        Printer.Print Right(!codigo, Len(!codigo) - 4)
-        
-        If !preciorebaja > 0 Then
-            Printer.CurrentX = x
-            Printer.CurrentY = Y + 20
-            Printer.FontSize = 12
-            Printer.FontBold = True
-            Printer.ForeColor = vbRed
-            Printer.Print "Rebajado: " & Format(!preciorebaja, "#00.00#") & €
-            Printer.ForeColor = vbBlack
-            Printer.FontBold = False
-        End If
-        
-        
-        
+        Printer.FontBold = True
+        Printer.Print "PVP: " & Format(etiquetasParaImprimir(indiceEtiqueta).PrecioConIVA, "#00.00#") & "â‚¬"
+        Printer.FontBold = False
+
+        ' Avanzar a siguiente posiciÃ³n
         Contahoriz = Contahoriz + 1
-        x = x + AnchoEtiq '(210 / Numetiqhor)
+        x = x + AnchoEtiq
         NumImpresa = NumImpresa + 1
-        If UltimoArt = !Idart Then
-            Printer.EndDoc
-            Exit Sub
+        indiceEtiqueta = indiceEtiqueta + 1
+
+        ' Si llegamos al final de la fila
+        If Contahoriz >= Numetiqhor Then
+            Contahoriz = 0
+            Contaverti = Contaverti + 1
+            x = 2
+
+            ' Si llegamos al final de la pÃ¡gina
+            If Contaverti >= Numetiqver Then
+                Printer.NewPage
+                Contaverti = 0
+                Y = MargenSuperior
+            Else
+                Y = Y + AltoEtiq
+            End If
         End If
-        .MoveNext
     Loop
-    
-    Contahoriz = 0
-    Contaverti = Contaverti + 1
-    
-    If Contaverti = Numetiqver Then 'And NumImpresa < Val(TxtNumEtiq) Then
-        Printer.NewPage
-        Contaverti = 0
-        Y = MargenSuperior
-        x = 5
-    Else
-'    If y >= 260 Then
-'        Printer.NewPage
-'        y = 10
-'    End If
-        Y = Y + AltoEtiq '(290 / Numetiqver)
-        x = 5
-    End If
-Loop
-End With
-Printer.EndDoc
-Exit Sub
+
+    Printer.EndDoc
+    MsgBox "ImpresiÃ³n completada: " & NumImpresa & " etiquetas", vbInformation, "Etiquetas PrestaShop"
+    Exit Sub
+
 sehodio:
-    MsgBox (Err.Number & Chr(13) & Err.Description)
+    MsgBox "Error de impresiÃ³n: " & Err.Number & Chr(13) & Err.Description, vbCritical
 End Sub
 Private Sub ImprimeCodigo()
 Dim Contahoriz, Contaverti As Integer
@@ -462,10 +452,10 @@ Do Until Contaverti = Numetiqver
         Printer.FontName = "Arial"
         Printer.CurrentX = x
         Printer.CurrentY = Y + 10
-        Printer.Print "Etiqueta horizontal nº " & Contahoriz
+        Printer.Print "Etiqueta horizontal nï¿½ " & Contahoriz
         Printer.CurrentX = x
         Printer.CurrentY = Y + 14
-        Printer.Print "Etiqueta vertical nº" & Contaverti
+        Printer.Print "Etiqueta vertical nï¿½" & Contaverti
         Contahoriz = Contahoriz + 1
         x = x + (210 / Numetiqhor)
     Loop
@@ -489,8 +479,96 @@ ImprimeCodigo
 End Sub
 
 Private Sub Command3_Click()
-        Printer.PaintPicture Picture1.Picture, 5, 5, 10, 10
+    ' Buscar productos en PrestaShop por rango de IDs
+    Dim idInicio As Long
+    Dim idFin As Long
+    Dim i As Integer
+    Dim j As Integer
+    Dim producto As ProductoPrestaShop
 
+    On Error GoTo ErrorHandler
+
+    ' Validar que se han introducido los IDs
+    If Trim(TxtPrimero.Text) = "" Or Trim(TxtUltimo.Text) = "" Then
+        MsgBox "Por favor, introduzca el rango de IDs de productos (Desde/Hasta)", vbExclamation
+        Exit Sub
+    End If
+
+    idInicio = CLng(Val(TxtPrimero.Text))
+    idFin = CLng(Val(TxtUltimo.Text))
+
+    If idInicio < 1 Or idFin < idInicio Then
+        MsgBox "Rango de IDs invÃ¡lido. El ID final debe ser mayor o igual que el inicial.", vbExclamation
+        Exit Sub
+    End If
+
+    ' Mostrar mensaje de espera
+    Me.MousePointer = vbHourglass
+    lbnumero.Caption = "Buscando en PrestaShop..."
+    DoEvents
+
+    ' Buscar productos en PrestaShop
+    numProductosPS = BuscarProductosPorRangoID(idInicio, idFin, productosPS)
+
+    If numProductosPS = 0 Then
+        Me.MousePointer = vbDefault
+        lbnumero.Caption = "No se encontraron productos"
+        MsgBox "No se encontraron productos activos con stock en el rango especificado.", vbInformation
+        Exit Sub
+    End If
+
+    ' Expandir productos con combinaciones en etiquetas individuales
+    ReDim etiquetasParaImprimir(1 To 1000) ' MÃ¡ximo 1000 etiquetas
+    numEtiquetas = 0
+
+    For i = 1 To numProductosPS
+        producto = productosPS(i)
+
+        If producto.TieneCombinaciones And producto.NumCombinaciones > 0 Then
+            ' Crear una etiqueta por cada combinaciÃ³n (talla)
+            For j = 1 To producto.NumCombinaciones
+                If producto.Combinaciones(j).stock > 0 Then
+                    numEtiquetas = numEtiquetas + 1
+                    etiquetasParaImprimir(numEtiquetas).idProducto = producto.idProducto
+                    etiquetasParaImprimir(numEtiquetas).EAN13 = producto.EAN
+                    etiquetasParaImprimir(numEtiquetas).NombreProducto = producto.Nombre
+                    etiquetasParaImprimir(numEtiquetas).Talla = producto.Combinaciones(j).Talla
+                    etiquetasParaImprimir(numEtiquetas).PrecioConIVA = producto.PrecioConIVA
+                    etiquetasParaImprimir(numEtiquetas).idCombinacion = producto.Combinaciones(j).idCombinacion
+                End If
+            Next j
+        Else
+            ' Producto estÃ¡ndar - una sola etiqueta
+            numEtiquetas = numEtiquetas + 1
+            etiquetasParaImprimir(numEtiquetas).idProducto = producto.idProducto
+            etiquetasParaImprimir(numEtiquetas).EAN13 = producto.EAN
+            etiquetasParaImprimir(numEtiquetas).NombreProducto = producto.Nombre
+            etiquetasParaImprimir(numEtiquetas).Talla = ""
+            etiquetasParaImprimir(numEtiquetas).PrecioConIVA = producto.PrecioConIVA
+            etiquetasParaImprimir(numEtiquetas).idCombinacion = 0
+        End If
+    Next i
+
+    ' Redimensionar array al tamaÃ±o real
+    If numEtiquetas > 0 Then
+        ReDim Preserve etiquetasParaImprimir(1 To numEtiquetas)
+    End If
+
+    ' Poblar el grid con los datos
+    PoblarGridConProductos
+
+    ' Actualizar contador
+    lbnumero.Caption = "Productos: " & numProductosPS & " | Etiquetas: " & numEtiquetas
+
+    Me.MousePointer = vbDefault
+    MsgBox "Se encontraron " & numProductosPS & " productos." & vbCrLf & _
+           "Total de etiquetas a imprimir: " & numEtiquetas, vbInformation, "BÃºsqueda completada"
+
+    Exit Sub
+
+ErrorHandler:
+    Me.MousePointer = vbDefault
+    MsgBox "Error al buscar productos: " & Err.Description, vbCritical
 End Sub
 
 Private Sub DBGrid1_Click()
@@ -523,9 +601,21 @@ Next i
 For i = 1 To Numetiqver
     Cmbfila.AddItem i
 Next i
-Set RsArtImpr = bdtienda.OpenRecordset("Select idart, codigo, tipo, precioventa, preciorebaja, color, talla, extra, fechacompra, preciocompra, deposito from articulos where vendido = false order by idart")
+
+' NO cargar datos de BD local - los productos se buscarÃ¡n en PrestaShop
+numProductosPS = 0
+numEtiquetas = 0
+
+' Crear recordset vacÃ­o temporal para el grid
+Set RsArtImpr = CrearRecordsetVacio()
 Set Data.Recordset = RsArtImpr
-DBGrid1.Columns(8).Visible = False
+
+' Mostrar mensaje inicial
+MsgBox "Formulario de etiquetas PrestaShop" & vbCrLf & _
+       "1. Introduzca el rango de IDs de productos" & vbCrLf & _
+       "2. Haga clic en 'Buscar en PrestaShop'" & vbCrLf & _
+       "3. Revise los productos encontrados" & vbCrLf & _
+       "4. Haga clic en 'Imprime con logo'", vbInformation, "Etiquetas PrestaShop"
 End Sub
 
 Private Sub Text1_Change()
@@ -537,7 +627,7 @@ Private Sub Text2_Change()
     MargenSuperior = Int(Text2.Text)
     Exit Sub
 sehodio:
-    MsgBox "El margen no se ha podido fijar. Actualmente está en 3px"
+    MsgBox "El margen no se ha podido fijar. Actualmente estï¿½ en 3px"
     MargenSuperior = 3
 End Sub
 
@@ -546,5 +636,77 @@ On Error Resume Next
     Dim canti As Integer
     canti = Val(TxtUltimo.Text) - Val(TxtPrimero.Text) + 1
     If canti <= 0 Then lbnumero = "": Exit Sub
-    lbnumero = "Nº etiquetas: " & canti
+    lbnumero = "Rango: " & canti & " IDs"
+End Sub
+
+'******************************************************************************
+'* FUNCIÃ“N: CrearRecordsetVacio
+'* PROPÃ“SITO: Crea un recordset temporal en memoria para el DBGrid
+'******************************************************************************
+Private Function CrearRecordsetVacio() As Recordset
+    On Error GoTo ErrorHandler
+
+    Dim Rs As Recordset
+
+    ' Crear recordset temporal usando DAO
+    Set Rs = New Recordset
+
+    ' Agregar campos que necesitamos mostrar en el grid
+    With Rs
+        .Fields.Append .CreateField("idProducto", dbLong)
+        .Fields.Append .CreateField("EAN13", dbText, 50)
+        .Fields.Append .CreateField("Nombre", dbText, 200)
+        .Fields.Append .CreateField("Talla", dbText, 50)
+        .Fields.Append .CreateField("Precio", dbCurrency)
+        .Open
+    End With
+
+    Set CrearRecordsetVacio = Rs
+    Exit Function
+
+ErrorHandler:
+    MsgBox "Error al crear recordset: " & Err.Description, vbCritical
+    Set CrearRecordsetVacio = Nothing
+End Function
+
+'******************************************************************************
+'* FUNCIÃ“N: PoblarGridConProductos
+'* PROPÃ“SITO: Llena el DBGrid con las etiquetas a imprimir
+'******************************************************************************
+Private Sub PoblarGridConProductos()
+    On Error GoTo ErrorHandler
+
+    Dim i As Integer
+    Dim Rs As Recordset
+
+    ' Limpiar recordset existente
+    If Not RsArtImpr Is Nothing Then
+        RsArtImpr.Close
+        Set RsArtImpr = Nothing
+    End If
+
+    ' Crear nuevo recordset
+    Set RsArtImpr = CrearRecordsetVacio()
+
+    ' Agregar cada etiqueta al recordset
+    For i = 1 To numEtiquetas
+        With RsArtImpr
+            .AddNew
+            !idProducto = etiquetasParaImprimir(i).idProducto
+            !EAN13 = etiquetasParaImprimir(i).EAN13
+            !Nombre = etiquetasParaImprimir(i).NombreProducto
+            !Talla = etiquetasParaImprimir(i).Talla
+            !Precio = etiquetasParaImprimir(i).PrecioConIVA
+            .Update
+        End With
+    Next i
+
+    ' Vincular al grid
+    RsArtImpr.MoveFirst
+    Set Data.Recordset = RsArtImpr
+
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Error al poblar grid: " & Err.Description, vbCritical
 End Sub

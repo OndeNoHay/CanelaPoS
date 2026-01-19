@@ -770,3 +770,224 @@ Private Function URLEncode(ByVal texto As String) As String
 
     URLEncode = resultado
 End Function
+
+'******************************************************************************
+'* FUNCIÓN: BuscarProductosPorRangoID
+'* PROPÓSITO: Busca productos en PrestaShop por rango de IDs
+'* PARÁMETROS:
+'*   - idInicio: ID inicial del rango
+'*   - idFin: ID final del rango
+'*   - productos(): Array ByRef donde se almacenarán los productos encontrados
+'* RETORNA: Número de productos encontrados (0 si hay error o no se encuentran)
+'* NOTA: Solo retorna productos activos y con stock > 0
+'******************************************************************************
+Public Function BuscarProductosPorRangoID(ByVal idInicio As Long, ByVal idFin As Long, _
+    ByRef productos() As ProductoPrestaShop) As Integer
+    On Error GoTo ErrorHandler
+
+    Dim xmlHttp As Object
+    Dim url As String
+    Dim responseText As String
+    Dim numProductos As Integer
+
+    BuscarProductosPorRangoID = 0
+    numProductos = 0
+
+    ' Validar rango
+    If idInicio < 1 Or idFin < idInicio Then
+        LogError "Rango de IDs inválido: " & idInicio & " - " & idFin
+        Exit Function
+    End If
+
+    ' Limitar el rango a 500 productos
+    If (idFin - idInicio) > 500 Then
+        LogError "Rango demasiado grande: máximo 500 productos"
+        Exit Function
+    End If
+
+    ' Construir URL para búsqueda por rango
+    url = PS_API_BRIDGE_URL & "bridge.php?action=buscar_productos_rango&id_inicio=" & idInicio & "&id_fin=" & idFin
+
+    LogInfo "Buscando productos del ID " & idInicio & " al " & idFin
+
+    ' Crear objeto HTTP
+    Set xmlHttp = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+
+    ' Configurar timeout largo (puede tardar con muchos productos)
+    xmlHttp.setTimeouts 10000, 10000, 60000, 60000
+
+    ' Realizar petición GET
+    xmlHttp.Open "GET", url, False
+    xmlHttp.setRequestHeader "Content-Type", "application/json"
+    xmlHttp.setRequestHeader "Accept", "application/json"
+    xmlHttp.Send
+
+    ' Verificar respuesta
+    If xmlHttp.Status = 200 Then
+        responseText = xmlHttp.responseText
+        LogDebug "Respuesta recibida: " & Left(responseText, 200)
+
+        ' Parsear JSON response con array de productos
+        numProductos = ParsearProductosRangoJSON(responseText, productos)
+
+        If numProductos > 0 Then
+            LogInfo "Productos encontrados en rango: " & numProductos
+        Else
+            LogInfo "No se encontraron productos activos con stock en el rango"
+        End If
+    Else
+        LogError "Error HTTP: " & xmlHttp.Status & " - " & xmlHttp.statusText
+    End If
+
+    Set xmlHttp = Nothing
+    BuscarProductosPorRangoID = numProductos
+    Exit Function
+
+ErrorHandler:
+    LogError "Error en BuscarProductosPorRangoID: " & Err.Description
+    BuscarProductosPorRangoID = 0
+End Function
+
+'******************************************************************************
+'* FUNCIÓN: ParsearProductosRangoJSON
+'* PROPÓSITO: Parsea la respuesta JSON del endpoint de búsqueda por rango
+'* RETORNA: Número de productos parseados
+'******************************************************************************
+Private Function ParsearProductosRangoJSON(ByVal jsonText As String, _
+    ByRef productos() As ProductoPrestaShop) As Integer
+    On Error Resume Next
+
+    Dim numProductos As Integer
+    Dim posArray As Long
+    Dim posStart As Long
+    Dim posEnd As Long
+    Dim nivel As Integer
+    Dim i As Long
+    Dim objetoProducto As String
+    Dim producto As ProductoPrestaShop
+
+    numProductos = 0
+
+    ' Verificar success
+    If Not ExtraerValorBooleano(jsonText, "success") Then
+        LogError "Error en respuesta del servidor: " & ExtraerValorCadena(jsonText, "mensaje")
+        ParsearProductosRangoJSON = 0
+        Exit Function
+    End If
+
+    ' Buscar el array "productos" dentro de "data"
+    ' Patrón: "data":{"productos":[...]}
+    posArray = InStr(1, jsonText, """productos""", vbTextCompare)
+    If posArray = 0 Then
+        LogWarning "No se encontró array de productos en respuesta"
+        ParsearProductosRangoJSON = 0
+        Exit Function
+    End If
+
+    ' Buscar el [ que abre el array
+    posArray = InStr(posArray, jsonText, "[")
+    If posArray = 0 Then
+        ParsearProductosRangoJSON = 0
+        Exit Function
+    End If
+
+    ' Inicializar array de productos (máximo 500)
+    ReDim productos(1 To 500)
+
+    ' Buscar cada objeto {...} dentro del array
+    posStart = posArray + 1
+
+    Do While posStart < Len(jsonText) And numProductos < 500
+        ' Saltar espacios y comas
+        Do While posStart < Len(jsonText)
+            Dim ch As String
+            ch = Mid(jsonText, posStart, 1)
+            If ch <> " " And ch <> vbCrLf And ch <> vbLf And ch <> vbTab And ch <> "," Then
+                Exit Do
+            End If
+            posStart = posStart + 1
+        Loop
+
+        ' Si encontramos ], terminamos
+        If Mid(jsonText, posStart, 1) = "]" Then Exit Do
+
+        ' Si no es {, saltar
+        If Mid(jsonText, posStart, 1) <> "{" Then Exit Do
+
+        ' Encontrar el } correspondiente
+        nivel = 1
+        posEnd = posStart
+        For i = posStart + 1 To Len(jsonText)
+            If Mid(jsonText, i, 1) = "{" Then nivel = nivel + 1
+            If Mid(jsonText, i, 1) = "}" Then nivel = nivel - 1
+            If nivel = 0 Then
+                posEnd = i
+                Exit For
+            End If
+        Next i
+
+        If nivel <> 0 Then Exit Do ' No se encontró el cierre
+
+        ' Extraer objeto completo
+        objetoProducto = Mid(jsonText, posStart, posEnd - posStart + 1)
+
+        ' Parsear el producto (reutilizamos ParsearProductoJSON pero con el objeto individual)
+        ' Como ParsearProductoJSON espera el JSON completo con "success" y "data",
+        ' vamos a parsear manualmente este objeto
+        producto = ParsearObjetoProducto(objetoProducto)
+
+        If producto.encontrado Then
+            numProductos = numProductos + 1
+            productos(numProductos) = producto
+        End If
+
+        ' Mover al siguiente objeto
+        posStart = posEnd + 1
+    Loop
+
+    ' Redimensionar array al tamaño real
+    If numProductos > 0 Then
+        ReDim Preserve productos(1 To numProductos)
+    Else
+        Erase productos
+    End If
+
+    ParsearProductosRangoJSON = numProductos
+End Function
+
+'******************************************************************************
+'* FUNCIÓN: ParsearObjetoProducto
+'* PROPÓSITO: Parsea un objeto JSON individual de producto
+'******************************************************************************
+Private Function ParsearObjetoProducto(ByVal jsonText As String) As ProductoPrestaShop
+    On Error Resume Next
+
+    Dim producto As ProductoPrestaShop
+
+    producto.encontrado = True
+    producto.TieneCombinaciones = False
+
+    ' Parsear campos usando funciones existentes
+    producto.idProducto = ExtraerValorNumerico(jsonText, "id")
+    producto.Referencia = ExtraerValorCadena(jsonText, "reference")
+    producto.EAN = ExtraerValorCadena(jsonText, "ean13")
+    producto.Nombre = ExtraerValorCadena(jsonText, "nombre")
+    producto.Descripcion = ExtraerValorCadena(jsonText, "descripcion")
+    producto.PrecioSinIVA = ExtraerValorMoneda(jsonText, "precio_sin_iva")
+    producto.PrecioConIVA = ExtraerValorMoneda(jsonText, "precio_con_iva")
+    producto.PorcentajeIVA = ExtraerValorNumerico(jsonText, "iva")
+    producto.StockDisponible = ExtraerValorNumerico(jsonText, "stock")
+    producto.Activo = ExtraerValorBooleano(jsonText, "activo")
+    producto.TieneCombinaciones = ExtraerValorBooleano(jsonText, "tiene_combinaciones")
+
+    ' Parsear combinaciones si existen
+    producto.NumCombinaciones = 0
+    If producto.TieneCombinaciones Then
+        producto.NumCombinaciones = ParsearCombinaciones(jsonText, producto.Combinaciones)
+        If producto.NumCombinaciones > 0 Then
+            producto.idCombinacion = producto.Combinaciones(1).idCombinacion
+        End If
+    End If
+
+    ParsearObjetoProducto = producto
+End Function

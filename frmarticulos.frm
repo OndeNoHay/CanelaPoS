@@ -1,6 +1,4 @@
 VERSION 5.00
-Object = "{00028C01-0000-0000-0000-000000000046}#1.0#0"; "DBGRID32.OCX"
-Object = "{648A5603-2C6E-101B-82B6-000000000014}#1.1#0"; "MSCOMM32.OCX"
 Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0"; "COMDLG32.OCX"
 Begin VB.Form frmarticulos 
    BackColor       =   &H00FF0000&
@@ -200,22 +198,23 @@ Begin VB.Form frmarticulos
          Width           =   2775
       End
    End
-   Begin MSDBGrid.DBGrid DBGrid1 
-      Bindings        =   "frmarticulos.frx":0000
+   Begin VB.PictureBox DBGrid1 
       Height          =   5055
       Left            =   0
-      OleObjectBlob   =   "frmarticulos.frx":0013
+      ScaleHeight     =   4995
+      ScaleWidth      =   11115
       TabIndex        =   0
       Top             =   0
       Width           =   11175
    End
-   Begin MSCommLib.MSComm Msc 
+   Begin VB.PictureBox Msc 
+      Height          =   480
       Left            =   10920
+      ScaleHeight     =   420
+      ScaleWidth      =   1140
+      TabIndex        =   12
       Top             =   4800
-      _ExtentX        =   1005
-      _ExtentY        =   1005
-      _Version        =   393216
-      DTREnable       =   -1  'True
+      Width           =   1200
    End
 End
 Attribute VB_Name = "frmarticulos"
@@ -282,7 +281,7 @@ Private Sub cmdllamar_Click()
 
     Set rsnumprov = bdtienda.OpenRecordset("proveedor")
     Do Until rsnumprov.EOF
-        If UCase(numproveedor) = UCase(rsnumprov!Codigo) Then
+        If UCase(numproveedor) = UCase(rsnumprov!codigo) Then
             numproveedor = rsnumprov!telefono
         End If
         rsnumprov.MoveNext

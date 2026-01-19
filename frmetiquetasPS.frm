@@ -293,7 +293,7 @@ End Type
 Dim Numetiqhor As Integer
 Dim Numetiqver As Integer
 Dim AltoEtiq, AnchoEtiq As Integer
-Dim RsArtImpr As Recordset
+Dim RsArtImpr As Object  ' ADODB.Recordset
 Dim PasaPrimerNum As Boolean
 Dim MargenSuperior As Integer
 
@@ -643,23 +643,25 @@ End Sub
 '* FUNCIÓN: CrearRecordsetVacio
 '* PROPÓSITO: Crea un recordset temporal en memoria para el DBGrid
 '******************************************************************************
-Private Function CrearRecordsetVacio() As Recordset
+Private Function CrearRecordsetVacio() As Object
     On Error GoTo ErrorHandler
 
-    Dim Rs As Recordset
+    Dim Rs As Object  ' ADODB.Recordset
 
-    ' Crear recordset temporal usando DAO
-    Set Rs = New Recordset
+    ' Crear recordset ADODB en memoria (más flexible que DAO)
+    Set Rs = CreateObject("ADODB.Recordset")
 
     ' Agregar campos que necesitamos mostrar en el grid
-    With Rs
-        .Fields.Append .CreateField("idProducto", dbLong)
-        .Fields.Append .CreateField("EAN13", dbText, 50)
-        .Fields.Append .CreateField("Nombre", dbText, 200)
-        .Fields.Append .CreateField("Talla", dbText, 50)
-        .Fields.Append .CreateField("Precio", dbCurrency)
-        .Open
+    With Rs.Fields
+        .Append "idProducto", 3  ' adInteger
+        .Append "EAN13", 202, 50  ' adVarWChar
+        .Append "Nombre", 202, 200  ' adVarWChar
+        .Append "Talla", 202, 50  ' adVarWChar
+        .Append "Precio", 6  ' adCurrency
     End With
+
+    ' Abrir el recordset
+    Rs.Open
 
     Set CrearRecordsetVacio = Rs
     Exit Function
@@ -677,7 +679,7 @@ Private Sub PoblarGridConProductos()
     On Error GoTo ErrorHandler
 
     Dim i As Integer
-    Dim Rs As Recordset
+    Dim Rs As Object  ' ADODB.Recordset
 
     ' Limpiar recordset existente
     If Not RsArtImpr Is Nothing Then
@@ -692,17 +694,19 @@ Private Sub PoblarGridConProductos()
     For i = 1 To numEtiquetas
         With RsArtImpr
             .AddNew
-            !idProducto = etiquetasParaImprimir(i).idProducto
-            !EAN13 = etiquetasParaImprimir(i).EAN13
-            !Nombre = etiquetasParaImprimir(i).NombreProducto
-            !Talla = etiquetasParaImprimir(i).Talla
-            !Precio = etiquetasParaImprimir(i).PrecioConIVA
+            .Fields("idProducto").Value = etiquetasParaImprimir(i).idProducto
+            .Fields("EAN13").Value = etiquetasParaImprimir(i).EAN13
+            .Fields("Nombre").Value = etiquetasParaImprimir(i).NombreProducto
+            .Fields("Talla").Value = etiquetasParaImprimir(i).Talla
+            .Fields("Precio").Value = etiquetasParaImprimir(i).PrecioConIVA
             .Update
         End With
     Next i
 
     ' Vincular al grid
-    RsArtImpr.MoveFirst
+    If RsArtImpr.RecordCount > 0 Then
+        RsArtImpr.MoveFirst
+    End If
     Set Data.Recordset = RsArtImpr
 
     Exit Sub

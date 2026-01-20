@@ -28,6 +28,7 @@
 
 // Cargar configuración
 require_once __DIR__ . '/api_config.php';
+require_once __DIR__ . '/barcode_generator.php';
 
 // Configurar headers JSON
 header('Content-Type: application/json; charset=utf-8');
@@ -71,10 +72,14 @@ try {
             handleBuscarProductosRango();
             break;
 
+        case 'generar_codigos_barras':
+            handleGenerarCodigosBarras();
+            break;
+
         default:
             responderError(400, 'Acción no válida', [
                 'accion_recibida' => $action,
-                'acciones_validas' => ['test', 'buscar_producto', 'obtener_stock', 'info_producto', 'actualizar_stock', 'buscar_productos_rango']
+                'acciones_validas' => ['test', 'buscar_producto', 'obtener_stock', 'info_producto', 'actualizar_stock', 'buscar_productos_rango', 'generar_codigos_barras']
             ]);
     }
 } catch (Exception $e) {
@@ -418,6 +423,131 @@ function handleBuscarProductosRango() {
         ],
         'errores' => $errores
     ], $tiempo);
+}
+
+/**
+ * Generar códigos de barras como imágenes PNG
+ * POST /bridge.php?action=generar_codigos_barras
+ * Body: JSON array de códigos EAN13
+ * Ejemplo: ["8435423154703", "8435423154710", "8435423154727"]
+ *
+ * Retorna: JSON con rutas de archivos generados
+ */
+function handleGenerarCodigosBarras() {
+    $inicio = microtime(true);
+
+    try {
+        // Validar método HTTP
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            responderError(405, 'Método no permitido. Use POST', [
+                'metodo_recibido' => $_SERVER['REQUEST_METHOD']
+            ]);
+        }
+
+        // Leer body JSON
+        $json = file_get_contents('php://input');
+        $codigos = json_decode($json, true);
+
+        // Validar formato
+        if (!is_array($codigos) || empty($codigos)) {
+            responderError(400, 'Se requiere un array JSON de códigos EAN13', [
+                'ejemplo' => ['8435423154703', '8435423154710']
+            ]);
+        }
+
+        // Limitar cantidad para evitar timeouts (máximo 500 códigos)
+        if (count($codigos) > 500) {
+            responderError(400, 'Máximo 500 códigos por petición', [
+                'recibidos' => count($codigos),
+                'maximo' => 500
+            ]);
+        }
+
+        // Crear carpeta temporal si no existe
+        $tempDir = __DIR__ . '/temp_barcodes';
+        if (!file_exists($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        // Limpiar archivos antiguos (más de 1 hora)
+        $archivosAntiguos = glob("$tempDir/*.png");
+        $ahora = time();
+        foreach ($archivosAntiguos as $archivo) {
+            if ($ahora - filemtime($archivo) > 3600) { // 1 hora
+                @unlink($archivo);
+            }
+        }
+
+        registrarLog('BARCODES', count($codigos), "Generando " . count($codigos) . " códigos de barras");
+
+        // Generar códigos de barras
+        $generator = new BarcodeGenerator();
+        $archivosGenerados = [];
+        $errores = [];
+
+        foreach ($codigos as $index => $ean13) {
+            try {
+                // Limpiar el código (solo números)
+                $ean13_clean = preg_replace('/[^0-9]/', '', $ean13);
+
+                if (empty($ean13_clean)) {
+                    $errores[] = [
+                        'codigo' => $ean13,
+                        'error' => 'Código vacío o sin dígitos'
+                    ];
+                    continue;
+                }
+
+                // Generar nombre único para archivo
+                $timestamp = time();
+                $random = mt_rand(1000, 9999);
+                $filename = "barcode_{$ean13_clean}_{$timestamp}_{$random}.png";
+                $filepath = "$tempDir/$filename";
+
+                // Generar imagen (300x150 píxeles - alta resolución)
+                $resultado = $generator->saveEAN13($ean13_clean, $filepath, 300, 150);
+
+                if ($resultado) {
+                    $archivosGenerados[] = [
+                        'ean13' => $ean13_clean,
+                        'filename' => $filename,
+                        'filepath' => $filepath,
+                        'url' => "api_bridge/temp_barcodes/$filename"
+                    ];
+                } else {
+                    $errores[] = [
+                        'codigo' => $ean13,
+                        'error' => 'Error al guardar imagen'
+                    ];
+                }
+
+            } catch (Exception $e) {
+                $errores[] = [
+                    'codigo' => $ean13,
+                    'error' => $e->getMessage()
+                ];
+            }
+        }
+
+        $tiempo = round((microtime(true) - $inicio) * 1000);
+        registrarLog('BARCODES', count($archivosGenerados),
+            "Generados " . count($archivosGenerados) . " códigos, " . count($errores) . " errores",
+            $tiempo);
+
+        responderExito([
+            'archivos' => $archivosGenerados,
+            'total_generados' => count($archivosGenerados),
+            'total_errores' => count($errores),
+            'errores' => $errores,
+            'directorio_temporal' => $tempDir
+        ], $tiempo);
+
+    } catch (Exception $e) {
+        registrarLog('ERROR', 'generar_codigos_barras', "Excepción: " . $e->getMessage());
+        responderError(500, 'Error al generar códigos de barras', [
+            'error' => $e->getMessage()
+        ]);
+    }
 }
 
 // ========================================================================

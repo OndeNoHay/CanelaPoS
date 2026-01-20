@@ -808,8 +808,14 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
     Dim ean13Key As String
     Dim httpDownload As Object
     Dim rutaArchivoLocal As String
+    Dim intentosDescarga As Integer
+    Dim descargasExitosas As Integer
+    Dim debugMsg As String
 
+    intentosDescarga = 0
+    descargasExitosas = 0
     posInicio = 1
+
     Do
         ' Buscar "filename":"
         posInicio = InStr(posInicio, respuesta, """filename"":""")
@@ -820,6 +826,7 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
 
         If posFin > posInicio Then
             filename = Mid(respuesta, posInicio, posFin - posInicio)
+            intentosDescarga = intentosDescarga + 1
 
             ' Extraer EAN13 del filename (formato: barcode_EAN13_timestamp_random.png)
             Dim partes() As String
@@ -828,15 +835,26 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
                 ean13Key = partes(1)  ' EAN13 está en la segunda parte
 
                 ' DESCARGAR imagen del servidor HTTP
+                On Error Resume Next
                 Set httpDownload = CreateObject("MSXML2.XMLHTTP")
-                httpDownload.Open "GET", urlBaseServidor & filename, False
+
+                Dim urlDescarga As String
+                urlDescarga = urlBaseServidor & filename
+
+                httpDownload.Open "GET", urlDescarga, False
                 httpDownload.send
 
-                If httpDownload.Status = 200 Then
+                Dim httpStatus As Long
+                httpStatus = httpDownload.Status
+
+                On Error GoTo ErrorHandler
+
+                If httpStatus = 200 Then
                     ' Guardar imagen en carpeta local temporal
                     rutaArchivoLocal = rutaBaseLocal & filename
 
                     ' Escribir bytes de la imagen a archivo local
+                    On Error Resume Next
                     Dim stream As Object
                     Set stream = CreateObject("ADODB.Stream")
                     stream.Type = 1  ' adTypeBinary
@@ -846,17 +864,41 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
                     stream.Close
                     Set stream = Nothing
 
-                    ' Cargar imagen desde archivo LOCAL
-                    Dim pic As Object  ' Picture object (evita requerir referencia StdPicture)
-                    On Error Resume Next
-                    Set pic = LoadPicture(rutaArchivoLocal)
+                    Dim saveError As String
+                    saveError = ""
+                    If Err.Number <> 0 Then
+                        saveError = Err.Description
+                        Err.Clear
+                    End If
                     On Error GoTo ErrorHandler
 
-                    If Not pic Is Nothing Then
-                        ' Guardar en colección indexada por EAN13
-                        barcodeImages.Add pic, ean13Key
-                        barcodeFilenames.Add filename
+                    If saveError = "" Then
+                        ' Cargar imagen desde archivo LOCAL
+                        Dim pic As Object  ' Picture object (evita requerir referencia StdPicture)
+                        On Error Resume Next
+                        Set pic = LoadPicture(rutaArchivoLocal)
+
+                        Dim loadError As String
+                        loadError = ""
+                        If Err.Number <> 0 Then
+                            loadError = Err.Description
+                            Err.Clear
+                        End If
+                        On Error GoTo ErrorHandler
+
+                        If Not pic Is Nothing And loadError = "" Then
+                            ' Guardar en colección indexada por EAN13
+                            barcodeImages.Add pic, ean13Key
+                            barcodeFilenames.Add filename
+                            descargasExitosas = descargasExitosas + 1
+                        Else
+                            debugMsg = debugMsg & vbCrLf & "❌ LoadPicture falló: " & filename & " - " & loadError
+                        End If
+                    Else
+                        debugMsg = debugMsg & vbCrLf & "❌ SaveToFile falló: " & filename & " - " & saveError
                     End If
+                Else
+                    debugMsg = debugMsg & vbCrLf & "❌ HTTP " & httpStatus & ": " & urlDescarga
                 End If
 
                 Set httpDownload = Nothing
@@ -865,6 +907,16 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
 
         posInicio = posFin + 1
     Loop
+
+    ' Mostrar información de debug
+    If descargasExitosas = 0 Then
+        MsgBox "DEBUG - Descarga de códigos de barras:" & vbCrLf & vbCrLf & _
+               "Intentos: " & intentosDescarga & vbCrLf & _
+               "Exitosas: " & descargasExitosas & vbCrLf & _
+               "URL base: " & urlBaseServidor & vbCrLf & _
+               "Carpeta local: " & rutaBaseLocal & vbCrLf & vbCrLf & _
+               "Errores:" & debugMsg, vbExclamation, "Debug"
+    End If
 
     If barcodeImages.Count = 0 Then
         MsgBox "No se pudieron cargar las imágenes de códigos de barras", vbExclamation

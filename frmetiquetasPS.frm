@@ -293,7 +293,7 @@ End Type
 Dim Numetiqhor As Integer
 Dim Numetiqver As Integer
 Dim AltoEtiq, AnchoEtiq As Integer
-Dim RsArtImpr As Object  ' ADODB.Recordset
+Dim RsArtImpr As DAO.Recordset
 Dim PasaPrimerNum As Boolean
 Dim MargenSuperior As Integer
 
@@ -639,29 +639,77 @@ On Error Resume Next
     lbnumero = "Rango: " & canti & " IDs"
 End Sub
 
+Private Sub Form_Unload(Cancel As Integer)
+    ' Limpiar tabla temporal al cerrar el formulario
+    On Error Resume Next
+
+    ' Cerrar recordset si está abierto
+    If Not RsArtImpr Is Nothing Then
+        RsArtImpr.Close
+        Set RsArtImpr = Nothing
+    End If
+
+    ' Eliminar tabla temporal si existe
+    Dim i As Integer
+    For i = 0 To bdtienda.TableDefs.Count - 1
+        If bdtienda.TableDefs(i).Name = "TempEtiquetasPS" Then
+            bdtienda.TableDefs.Delete "TempEtiquetasPS"
+            Exit For
+        End If
+    Next i
+End Sub
+
 '******************************************************************************
 '* FUNCIÓN: CrearRecordsetVacio
-'* PROPÓSITO: Crea un recordset temporal en memoria para el DBGrid
+'* PROPÓSITO: Crea un recordset vacío DAO para el DBGrid usando tabla temporal
 '******************************************************************************
-Private Function CrearRecordsetVacio() As Object
+Private Function CrearRecordsetVacio() As DAO.Recordset
     On Error GoTo ErrorHandler
 
-    Dim Rs As Object  ' ADODB.Recordset
+    Dim Rs As DAO.Recordset
+    Dim tblDef As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim tablaExiste As Boolean
+    Dim i As Integer
 
-    ' Crear recordset ADODB en memoria (más flexible que DAO)
-    Set Rs = CreateObject("ADODB.Recordset")
+    ' Verificar si la tabla temporal ya existe
+    tablaExiste = False
+    For i = 0 To bdtienda.TableDefs.Count - 1
+        If bdtienda.TableDefs(i).Name = "TempEtiquetasPS" Then
+            tablaExiste = True
+            Exit For
+        End If
+    Next i
 
-    ' Agregar campos que necesitamos mostrar en el grid
-    With Rs.Fields
-        .Append "idProducto", 3  ' adInteger
-        .Append "EAN13", 202, 50  ' adVarWChar
-        .Append "Nombre", 202, 200  ' adVarWChar
-        .Append "Talla", 202, 50  ' adVarWChar
-        .Append "Precio", 6  ' adCurrency
-    End With
+    ' Si existe, eliminarla
+    If tablaExiste Then
+        bdtienda.TableDefs.Delete "TempEtiquetasPS"
+    End If
 
-    ' Abrir el recordset
-    Rs.Open
+    ' Crear nueva tabla temporal
+    Set tblDef = bdtienda.CreateTableDef("TempEtiquetasPS")
+
+    ' Agregar campos
+    Set fld = tblDef.CreateField("idProducto", dbLong)
+    tblDef.Fields.Append fld
+
+    Set fld = tblDef.CreateField("EAN13", dbText, 50)
+    tblDef.Fields.Append fld
+
+    Set fld = tblDef.CreateField("Nombre", dbText, 200)
+    tblDef.Fields.Append fld
+
+    Set fld = tblDef.CreateField("Talla", dbText, 50)
+    tblDef.Fields.Append fld
+
+    Set fld = tblDef.CreateField("Precio", dbCurrency)
+    tblDef.Fields.Append fld
+
+    ' Agregar la tabla a la BD
+    bdtienda.TableDefs.Append tblDef
+
+    ' Abrir recordset sobre la tabla temporal
+    Set Rs = bdtienda.OpenRecordset("TempEtiquetasPS", dbOpenTable)
 
     Set CrearRecordsetVacio = Rs
     Exit Function
@@ -679,7 +727,6 @@ Private Sub PoblarGridConProductos()
     On Error GoTo ErrorHandler
 
     Dim i As Integer
-    Dim Rs As Object  ' ADODB.Recordset
 
     ' Limpiar recordset existente
     If Not RsArtImpr Is Nothing Then
@@ -687,18 +734,18 @@ Private Sub PoblarGridConProductos()
         Set RsArtImpr = Nothing
     End If
 
-    ' Crear nuevo recordset
+    ' Crear nuevo recordset usando tabla temporal
     Set RsArtImpr = CrearRecordsetVacio()
 
     ' Agregar cada etiqueta al recordset
     For i = 1 To numEtiquetas
         With RsArtImpr
             .AddNew
-            .Fields("idProducto").Value = etiquetasParaImprimir(i).idProducto
-            .Fields("EAN13").Value = etiquetasParaImprimir(i).EAN13
-            .Fields("Nombre").Value = etiquetasParaImprimir(i).NombreProducto
-            .Fields("Talla").Value = etiquetasParaImprimir(i).Talla
-            .Fields("Precio").Value = etiquetasParaImprimir(i).PrecioConIVA
+            !idProducto = etiquetasParaImprimir(i).idProducto
+            !EAN13 = etiquetasParaImprimir(i).EAN13
+            !Nombre = etiquetasParaImprimir(i).NombreProducto
+            !Talla = etiquetasParaImprimir(i).Talla
+            !Precio = etiquetasParaImprimir(i).PrecioConIVA
             .Update
         End With
     Next i

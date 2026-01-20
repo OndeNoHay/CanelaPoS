@@ -386,7 +386,7 @@ Private Sub ImprimeEtiquetas()
         ean13 = Trim(etiquetasParaImprimir(indiceEtiqueta).EAN13)
 
         On Error Resume Next
-        Dim barcodeImg As StdPicture
+        Dim barcodeImg As Object  ' Picture object (evita requerir referencia StdPicture)
         Set barcodeImg = barcodeImages(ean13)
         On Error GoTo sehodio
 
@@ -816,7 +816,7 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
                 ean13Key = partes(1)  ' EAN13 está en la segunda parte
 
                 ' Cargar imagen
-                Dim pic As StdPicture
+                Dim pic As Object  ' Picture object (evita requerir referencia StdPicture)
                 On Error Resume Next
                 Set pic = LoadPicture(rutaBase & filename)
                 On Error GoTo ErrorHandler

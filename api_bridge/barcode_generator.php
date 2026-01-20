@@ -179,11 +179,13 @@ class BarcodeGenerator {
     }
 
     /**
-     * Guardar imagen de código de barras en archivo
+     * Guardar imagen de código de barras en archivo BMP (mejor compatibilidad VB6)
      */
     public function saveEAN13($ean13, $filepath, $width = 300, $height = 150) {
         $image = $this->generateEAN13($ean13, $width, $height);
-        $result = imagepng($image, $filepath);
+
+        // Guardar como BMP en lugar de PNG para compatibilidad VB6
+        $result = imagebmp($image, $filepath);
         imagedestroy($image);
         return $result;
     }
@@ -195,7 +197,7 @@ class BarcodeGenerator {
         $image = $this->generateEAN13($ean13, $width, $height);
 
         ob_start();
-        imagepng($image);
+        imagebmp($image);
         $imageData = ob_get_clean();
         imagedestroy($image);
 

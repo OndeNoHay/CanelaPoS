@@ -470,7 +470,7 @@ function handleGenerarCodigosBarras() {
         }
 
         // Limpiar archivos antiguos (más de 1 hora)
-        $archivosAntiguos = glob("$tempDir/*.png");
+        $archivosAntiguos = glob("$tempDir/*.bmp");
         $ahora = time();
         foreach ($archivosAntiguos as $archivo) {
             if ($ahora - filemtime($archivo) > 3600) { // 1 hora
@@ -498,13 +498,13 @@ function handleGenerarCodigosBarras() {
                     continue;
                 }
 
-                // Generar nombre único para archivo
+                // Generar nombre único para archivo (BMP para compatibilidad VB6)
                 $timestamp = time();
                 $random = mt_rand(1000, 9999);
-                $filename = "barcode_{$ean13_clean}_{$timestamp}_{$random}.png";
+                $filename = "barcode_{$ean13_clean}_{$timestamp}_{$random}.bmp";
                 $filepath = "$tempDir/$filename";
 
-                // Generar imagen (300x150 píxeles - alta resolución)
+                // Generar imagen BMP (300x150 píxeles - alta resolución)
                 $resultado = $generator->saveEAN13($ean13_clean, $filepath, 300, 150);
 
                 if ($resultado) {

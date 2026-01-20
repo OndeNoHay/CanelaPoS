@@ -1,4 +1,5 @@
-# Ignorar todas las imágenes PNG generadas
+# Ignorar todas las imágenes BMP generadas
+*.bmp
 *.png
 
 # Mantener el directorio en git

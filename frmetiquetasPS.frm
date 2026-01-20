@@ -883,23 +883,16 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
                     On Error GoTo ErrorHandler
 
                     If saveError = "" Then
-                        ' Cargar imagen desde archivo LOCAL usando Picture1 (PictureBox)
-                        ' Los PictureBox soportan PNG mejor que LoadPicture()
-                        Dim pic As Object  ' Picture object
+                        ' Cargar imagen BMP desde archivo LOCAL
+                        ' BMP tiene soporte nativo perfecto en VB6
+                        Dim pic As Object
                         On Error Resume Next
-
-                        ' Usar Picture1 temporal para cargar el PNG
-                        Picture1.Picture = LoadPicture(rutaArchivoLocal)
-                        Set pic = Picture1.Picture
+                        Set pic = LoadPicture(rutaArchivoLocal)
 
                         Dim loadError As String
                         loadError = ""
-                        If Err.Number <> 0 Or pic Is Nothing Then
-                            If Err.Number <> 0 Then
-                                loadError = Err.Description
-                            Else
-                                loadError = "Picture es Nothing"
-                            End If
+                        If Err.Number <> 0 Then
+                            loadError = Err.Description
                             Err.Clear
                         End If
                         On Error GoTo ErrorHandler
@@ -926,22 +919,15 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
         posInicio = posFin + 1
     Loop
 
-    ' Mostrar información de debug solo si hay problemas
-    If descargasExitosas = 0 And intentosDescarga > 0 Then
-        MsgBox "DEBUG - Descarga de códigos de barras:" & vbCrLf & vbCrLf & _
-               "Intentos: " & intentosDescarga & vbCrLf & _
-               "Exitosas: " & descargasExitosas & vbCrLf & _
-               "URL base: " & urlBaseServidor & vbCrLf & _
-               "Carpeta local: " & rutaBaseLocal & vbCrLf & vbCrLf & _
-               "Errores:" & debugMsg, vbExclamation, "Debug - Error en Descarga"
-    ElseIf descargasExitosas = 0 And intentosDescarga = 0 Then
-        MsgBox "DEBUG - No se encontraron archivos en la respuesta del API." & vbCrLf & vbCrLf & _
-               "Esto puede indicar que el JSON no se parseó correctamente." & vbCrLf & _
-               "Revise la respuesta del API en el log.", vbExclamation, "Debug - Parsing Fallido"
-    End If
-
+    ' Verificar resultado
     If barcodeImages.Count = 0 Then
-        MsgBox "No se pudieron cargar las imágenes de códigos de barras", vbExclamation
+        ' Mostrar error detallado solo si hubo problemas
+        If intentosDescarga > 0 Then
+            MsgBox "Error al cargar códigos de barras:" & vbCrLf & vbCrLf & _
+                   "Intentos: " & intentosDescarga & vbCrLf & _
+                   "Exitosas: " & descargasExitosas & vbCrLf & vbCrLf & _
+                   "Detalles:" & debugMsg, vbCritical, "Error"
+        End If
         GenerarImagenesCodigosBarras = False
         Exit Function
     End If

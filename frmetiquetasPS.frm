@@ -374,14 +374,30 @@ Private Sub ImprimeEtiquetas()
         Printer.PaintPicture Image1.Picture, x, Y, 10, 10
 
         ' Imprimir código de barras EAN13 (parte superior derecha)
-        ' NOTA: Se requiere fuente de códigos de barras EAN13 instalada en el sistema
-        ' Si no está disponible, se mostrará como texto normal
-        Printer.FontSize = 8
-        Printer.FontName = "IDAutomationHC39M"  ' O fuente EAN13 si está disponible
-        Printer.CurrentX = x + 20
-        Printer.CurrentY = Y
-        ' Para EAN13, algunos sistemas usan * como delimitadores, otros no
-        Printer.Print "*" & etiquetasParaImprimir(indiceEtiqueta).EAN13 & "*"
+        ' IMPORTANTE: Para EAN13 escaneable, necesitas una de estas fuentes instaladas:
+        ' - "Libre Barcode EAN13 Text" (gratis, descargable)
+        ' - "IDAutomation EAN13" (comercial)
+        ' - "Code EAN13" (comercial)
+        ' Si no tienes fuente EAN13, el código se imprimirá como texto legible
+
+        On Error Resume Next  ' Si la fuente no existe, usar Arial
+        Printer.FontName = "Libre Barcode EAN13 Text"  ' Cambiar si tienes otra fuente EAN13
+        If Err.Number <> 0 Then
+            Printer.FontName = "Arial"  ' Fallback a texto legible
+        End If
+        On Error GoTo sehodio
+
+        Printer.FontSize = 24  ' Tamaño grande para código de barras
+        Printer.CurrentX = x + 18
+        Printer.CurrentY = Y + 1
+        Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13  ' Sin asteriscos para EAN13
+
+        ' Imprimir número legible debajo del código de barras
+        Printer.FontName = "Arial"
+        Printer.FontSize = 6
+        Printer.CurrentX = x + 18
+        Printer.CurrentY = Y + 8
+        Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13
 
         ' Imprimir nombre del producto (debajo del logo)
         Printer.FontName = "Arial"
@@ -588,6 +604,8 @@ End If
 End Sub
 
 Private Sub Form_Load()
+On Error GoTo ErrorHandler
+
 AnchoEtiq = Cmbancho
 AltoEtiq = Cmbalto
 Numetiqhor = 3
@@ -608,7 +626,10 @@ numEtiquetas = 0
 
 ' Crear recordset vacío temporal para el grid
 Set RsArtImpr = CrearRecordsetVacio()
-Set Data.Recordset = RsArtImpr
+
+If Not RsArtImpr Is Nothing Then
+    Set Data.Recordset = RsArtImpr
+End If
 
 ' Mostrar mensaje inicial
 MsgBox "Formulario de etiquetas PrestaShop" & vbCrLf & _
@@ -616,6 +637,11 @@ MsgBox "Formulario de etiquetas PrestaShop" & vbCrLf & _
        "2. Haga clic en 'Buscar en PrestaShop'" & vbCrLf & _
        "3. Revise los productos encontrados" & vbCrLf & _
        "4. Haga clic en 'Imprime con logo'", vbInformation, "Etiquetas PrestaShop"
+
+Exit Sub
+
+ErrorHandler:
+    MsgBox "Error al inicializar formulario: " & Err.Description, vbCritical
 End Sub
 
 Private Sub Text1_Change()
@@ -643,11 +669,17 @@ Private Sub Form_Unload(Cancel As Integer)
     ' Limpiar tabla temporal al cerrar el formulario
     On Error Resume Next
 
+    ' Desvincular recordset del control Data
+    Set Data.Recordset = Nothing
+
     ' Cerrar recordset si está abierto
     If Not RsArtImpr Is Nothing Then
         RsArtImpr.Close
         Set RsArtImpr = Nothing
     End If
+
+    ' Esperar un momento para asegurar liberación de recursos
+    DoEvents
 
     ' Eliminar tabla temporal si existe
     Dim i As Integer
@@ -681,34 +713,34 @@ Private Function CrearRecordsetVacio() As DAO.Recordset
         End If
     Next i
 
-    ' Si existe, eliminarla
     If tablaExiste Then
-        bdtienda.TableDefs.Delete "TempEtiquetasPS"
+        ' Si la tabla existe, simplemente limpiarla (más rápido y evita bloqueos)
+        bdtienda.Execute "DELETE FROM TempEtiquetasPS", dbFailOnError
+    Else
+        ' Crear nueva tabla temporal solo si no existe
+        Set tblDef = bdtienda.CreateTableDef("TempEtiquetasPS")
+
+        ' Agregar campos
+        Set fld = tblDef.CreateField("idProducto", dbLong)
+        tblDef.Fields.Append fld
+
+        Set fld = tblDef.CreateField("EAN13", dbText, 50)
+        tblDef.Fields.Append fld
+
+        Set fld = tblDef.CreateField("Nombre", dbText, 200)
+        tblDef.Fields.Append fld
+
+        Set fld = tblDef.CreateField("Talla", dbText, 50)
+        tblDef.Fields.Append fld
+
+        Set fld = tblDef.CreateField("Precio", dbCurrency)
+        tblDef.Fields.Append fld
+
+        ' Agregar la tabla a la BD
+        bdtienda.TableDefs.Append tblDef
     End If
 
-    ' Crear nueva tabla temporal
-    Set tblDef = bdtienda.CreateTableDef("TempEtiquetasPS")
-
-    ' Agregar campos
-    Set fld = tblDef.CreateField("idProducto", dbLong)
-    tblDef.Fields.Append fld
-
-    Set fld = tblDef.CreateField("EAN13", dbText, 50)
-    tblDef.Fields.Append fld
-
-    Set fld = tblDef.CreateField("Nombre", dbText, 200)
-    tblDef.Fields.Append fld
-
-    Set fld = tblDef.CreateField("Talla", dbText, 50)
-    tblDef.Fields.Append fld
-
-    Set fld = tblDef.CreateField("Precio", dbCurrency)
-    tblDef.Fields.Append fld
-
-    ' Agregar la tabla a la BD
-    bdtienda.TableDefs.Append tblDef
-
-    ' Abrir recordset sobre la tabla temporal
+    ' Abrir recordset sobre la tabla temporal (ahora siempre vacía)
     Set Rs = bdtienda.OpenRecordset("TempEtiquetasPS", dbOpenTable)
 
     Set CrearRecordsetVacio = Rs
@@ -727,8 +759,13 @@ Private Sub PoblarGridConProductos()
     On Error GoTo ErrorHandler
 
     Dim i As Integer
+    Dim RsTemp As DAO.Recordset
 
-    ' Limpiar recordset existente
+    ' Cerrar y desvincular recordset anterior del control Data
+    On Error Resume Next
+    Set Data.Recordset = Nothing
+    On Error GoTo ErrorHandler
+
     If Not RsArtImpr Is Nothing Then
         RsArtImpr.Close
         Set RsArtImpr = Nothing
@@ -736,6 +773,12 @@ Private Sub PoblarGridConProductos()
 
     ' Crear nuevo recordset usando tabla temporal
     Set RsArtImpr = CrearRecordsetVacio()
+
+    ' Verificar que se creó correctamente
+    If RsArtImpr Is Nothing Then
+        MsgBox "No se pudo crear el recordset para mostrar los productos", vbExclamation
+        Exit Sub
+    End If
 
     ' Agregar cada etiqueta al recordset
     For i = 1 To numEtiquetas
@@ -759,5 +802,5 @@ Private Sub PoblarGridConProductos()
     Exit Sub
 
 ErrorHandler:
-    MsgBox "Error al poblar grid: " & Err.Description, vbCritical
+    MsgBox "Error al poblar grid: " & Err.Description & " (Err #" & Err.Number & ")", vbCritical
 End Sub

@@ -883,15 +883,23 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
                     On Error GoTo ErrorHandler
 
                     If saveError = "" Then
-                        ' Cargar imagen desde archivo LOCAL
-                        Dim pic As Object  ' Picture object (evita requerir referencia StdPicture)
+                        ' Cargar imagen desde archivo LOCAL usando Picture1 (PictureBox)
+                        ' Los PictureBox soportan PNG mejor que LoadPicture()
+                        Dim pic As Object  ' Picture object
                         On Error Resume Next
-                        Set pic = LoadPicture(rutaArchivoLocal)
+
+                        ' Usar Picture1 temporal para cargar el PNG
+                        Picture1.Picture = LoadPicture(rutaArchivoLocal)
+                        Set pic = Picture1.Picture
 
                         Dim loadError As String
                         loadError = ""
-                        If Err.Number <> 0 Then
-                            loadError = Err.Description
+                        If Err.Number <> 0 Or pic Is Nothing Then
+                            If Err.Number <> 0 Then
+                                loadError = Err.Description
+                            Else
+                                loadError = "Picture es Nothing"
+                            End If
                             Err.Clear
                         End If
                         On Error GoTo ErrorHandler

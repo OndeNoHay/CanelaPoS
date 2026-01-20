@@ -1,0 +1,5 @@
+# Ignorar todas las imágenes PNG descargadas del servidor
+*.png
+
+# Mantener el directorio en git
+!.gitignore

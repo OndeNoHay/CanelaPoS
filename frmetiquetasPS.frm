@@ -760,7 +760,8 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
     Set http = CreateObject("MSXML2.XMLHTTP")
 
     Dim urlAPI As String
-    urlAPI = "http://localhost/CanelaPoS/api_bridge/bridge.php?action=generar_codigos_barras"
+    ' IMPORTANTE: Cambiar esta URL según tu configuración
+    urlAPI = "http://canelamoda.es/api_bridge/bridge.php?action=generar_codigos_barras"
 
     http.Open "POST", urlAPI, False
     http.setRequestHeader "Content-Type", "application/json"
@@ -783,19 +784,30 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
         Exit Function
     End If
 
-    ' 5. Extraer rutas de archivos y cargar imágenes
+    ' 5. Extraer rutas de archivos, descargar imágenes y cargarlas
     ' Limpiar colecciones anteriores
     Set barcodeImages = New Collection
     Set barcodeFilenames = New Collection
 
-    Dim rutaBase As String
-    rutaBase = App.Path & "\api_bridge\temp_barcodes\"
+    ' Crear carpeta temporal LOCAL para descargar las imágenes
+    Dim rutaBaseLocal As String
+    rutaBaseLocal = App.Path & "\temp_barcodes\"
+
+    On Error Resume Next
+    MkDir rutaBaseLocal  ' Crear si no existe
+    On Error GoTo ErrorHandler
+
+    ' URL base del servidor para descargar imágenes
+    Dim urlBaseServidor As String
+    urlBaseServidor = "http://canelamoda.es/api_bridge/temp_barcodes/"
 
     ' Parsear los filenames del JSON (simple parsing sin biblioteca)
     Dim posInicio As Long
     Dim posFin As Long
     Dim filename As String
     Dim ean13Key As String
+    Dim httpDownload As Object
+    Dim rutaArchivoLocal As String
 
     posInicio = 1
     Do
@@ -815,17 +827,39 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
             If UBound(partes) >= 1 Then
                 ean13Key = partes(1)  ' EAN13 está en la segunda parte
 
-                ' Cargar imagen
-                Dim pic As Object  ' Picture object (evita requerir referencia StdPicture)
-                On Error Resume Next
-                Set pic = LoadPicture(rutaBase & filename)
-                On Error GoTo ErrorHandler
+                ' DESCARGAR imagen del servidor HTTP
+                Set httpDownload = CreateObject("MSXML2.XMLHTTP")
+                httpDownload.Open "GET", urlBaseServidor & filename, False
+                httpDownload.send
 
-                If Not pic Is Nothing Then
-                    ' Guardar en colección indexada por EAN13
-                    barcodeImages.Add pic, ean13Key
-                    barcodeFilenames.Add filename
+                If httpDownload.Status = 200 Then
+                    ' Guardar imagen en carpeta local temporal
+                    rutaArchivoLocal = rutaBaseLocal & filename
+
+                    ' Escribir bytes de la imagen a archivo local
+                    Dim stream As Object
+                    Set stream = CreateObject("ADODB.Stream")
+                    stream.Type = 1  ' adTypeBinary
+                    stream.Open
+                    stream.Write httpDownload.responseBody
+                    stream.SaveToFile rutaArchivoLocal, 2  ' adSaveCreateOverWrite
+                    stream.Close
+                    Set stream = Nothing
+
+                    ' Cargar imagen desde archivo LOCAL
+                    Dim pic As Object  ' Picture object (evita requerir referencia StdPicture)
+                    On Error Resume Next
+                    Set pic = LoadPicture(rutaArchivoLocal)
+                    On Error GoTo ErrorHandler
+
+                    If Not pic Is Nothing Then
+                        ' Guardar en colección indexada por EAN13
+                        barcodeImages.Add pic, ean13Key
+                        barcodeFilenames.Add filename
+                    End If
                 End If
+
+                Set httpDownload = Nothing
             End If
         End If
 
@@ -855,17 +889,22 @@ Private Sub Form_Unload(Cancel As Integer)
         Set barcodeImages = Nothing
     End If
 
-    ' Eliminar archivos temporales de códigos de barras
+    ' Eliminar archivos temporales de códigos de barras (carpeta LOCAL)
     If Not barcodeFilenames Is Nothing Then
         Dim filename As Variant
-        Dim rutaBase As String
-        rutaBase = App.Path & "\api_bridge\temp_barcodes\"
+        Dim rutaBaseLocal As String
+        rutaBaseLocal = App.Path & "\temp_barcodes\"
 
         For Each filename In barcodeFilenames
-            Kill rutaBase & filename  ' Eliminar archivo
+            Kill rutaBaseLocal & filename  ' Eliminar archivo local
         Next filename
 
         Set barcodeFilenames = Nothing
+
+        ' Intentar eliminar la carpeta temporal si está vacía
+        On Error Resume Next
+        RmDir rutaBaseLocal
+        On Error GoTo 0
     End If
 
     ' Desvincular recordset del control Data

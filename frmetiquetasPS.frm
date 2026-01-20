@@ -374,48 +374,64 @@ Private Sub ImprimeEtiquetas()
         Printer.PaintPicture Image1.Picture, x, Y, 10, 10
 
         ' Imprimir código de barras (parte superior derecha)
-        ' RECOMENDACIÓN: Usar Code128 en lugar de EAN13 para evitar problemas de checksum
-        ' EAN13 requiere checksum válido, Code128 acepta cualquier número
+        ' IMPORTANTE: El scanner puede necesitar mayor tamaño y zona de silencio
         '
-        ' Fuente recomendada: "Libre Barcode 128 Text" (GRATIS)
-        ' Descarga: https://fonts.google.com/specimen/Libre+Barcode+128+Text
+        ' Opciones de fuentes (en orden de preferencia):
+        ' 1. IDAutomationHC39M (Code 39) - Más compatible con scanners
+        ' 2. Libre Barcode 128 Text (Code 128) - Requiere tamaño mayor
+        '
         ' Ver instrucciones: INSTALAR_FUENTE_EAN13.md
-        '
-        ' Sin la fuente: Se imprime como texto normal (NO escaneable)
-        ' Con la fuente: Se imprime como código de barras (SÍ escaneable)
 
         Dim fuenteDisponible As String
+        Dim usarCode39 As Boolean
         On Error Resume Next
 
-        ' Intentar Code128 primero (más flexible)
-        Printer.FontName = "Libre Barcode 128 Text"
+        ' PRIMERO: Intentar Code 39 (más compatible con scanners)
+        Printer.FontName = "IDAutomationHC39M"
         fuenteDisponible = Printer.FontName
+        usarCode39 = (fuenteDisponible = "IDAutomationHC39M")
 
-        ' Si no está, intentar EAN13
-        If fuenteDisponible <> "Libre Barcode 128 Text" Then
-            Printer.FontName = "Libre Barcode EAN13 Text"
+        If Not usarCode39 Then
+            ' Si no está Code 39, intentar Code128
+            Printer.FontName = "Libre Barcode 128 Text"
             fuenteDisponible = Printer.FontName
+
+            ' Si tampoco está Code128, intentar EAN13
+            If fuenteDisponible <> "Libre Barcode 128 Text" Then
+                Printer.FontName = "Libre Barcode EAN13 Text"
+                fuenteDisponible = Printer.FontName
+            End If
         End If
 
         On Error GoTo sehodio
 
-        ' Si ninguna fuente de código de barras está disponible, usar Arial
-        If fuenteDisponible <> "Libre Barcode 128 Text" And fuenteDisponible <> "Libre Barcode EAN13 Text" Then
+        ' Configurar fuente y tamaño según disponibilidad
+        If usarCode39 Then
+            ' Code 39 requiere asteriscos y tamaño mayor
+            Printer.FontSize = 32
+            Printer.CurrentX = x + 15
+            Printer.CurrentY = Y
+            Printer.Print "*" & etiquetasParaImprimir(indiceEtiqueta).EAN13 & "*"
+        ElseIf fuenteDisponible = "Libre Barcode 128 Text" Or fuenteDisponible = "Libre Barcode EAN13 Text" Then
+            ' Code 128 / EAN13 sin asteriscos pero tamaño MAYOR para scanner
+            Printer.FontSize = 36
+            Printer.CurrentX = x + 15
+            Printer.CurrentY = Y
+            Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13
+        Else
+            ' Fallback a Arial (no escaneable)
             Printer.FontName = "Arial"
             Printer.FontSize = 8
-        Else
-            Printer.FontSize = 24  ' Tamaño grande para código de barras
+            Printer.CurrentX = x + 18
+            Printer.CurrentY = Y + 1
+            Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13
         End If
-
-        Printer.CurrentX = x + 18
-        Printer.CurrentY = Y + 1
-        Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13  ' Sin asteriscos
 
         ' Imprimir número legible debajo del código de barras
         Printer.FontName = "Arial"
         Printer.FontSize = 6
         Printer.CurrentX = x + 18
-        Printer.CurrentY = Y + 8
+        Printer.CurrentY = Y + 9
         Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13
 
         ' Imprimir nombre del producto (debajo del logo)

@@ -374,20 +374,27 @@ Private Sub ImprimeEtiquetas()
         Printer.PaintPicture Image1.Picture, x, Y, 10, 10
 
         ' Imprimir código de barras EAN13 (parte superior derecha)
-        ' IMPORTANTE: Para EAN13 escaneable, necesitas una de estas fuentes instaladas:
-        ' - "Libre Barcode EAN13 Text" (gratis, descargable)
-        ' - "IDAutomation EAN13" (comercial)
-        ' - "Code EAN13" (comercial)
-        ' Si no tienes fuente EAN13, el código se imprimirá como texto legible
+        ' CRÍTICO: Para códigos ESCANEABLES necesitas instalar fuente EAN13
+        ' Descarga GRATIS: https://fonts.google.com/specimen/Libre+Barcode+EAN13+Text
+        ' Ver instrucciones detalladas en: INSTALAR_FUENTE_EAN13.md
+        '
+        ' Sin la fuente: Se imprime como texto normal (NO escaneable)
+        ' Con la fuente: Se imprime como código de barras (SÍ escaneable)
 
-        On Error Resume Next  ' Si la fuente no existe, usar Arial
-        Printer.FontName = "Libre Barcode EAN13 Text"  ' Cambiar si tienes otra fuente EAN13
-        If Err.Number <> 0 Then
-            Printer.FontName = "Arial"  ' Fallback a texto legible
-        End If
+        Dim fuenteDisponible As String
+        On Error Resume Next
+        Printer.FontName = "Libre Barcode EAN13 Text"
+        fuenteDisponible = Printer.FontName
         On Error GoTo sehodio
 
-        Printer.FontSize = 24  ' Tamaño grande para código de barras
+        ' Si la fuente no se pudo aplicar, usar Arial como fallback
+        If fuenteDisponible <> "Libre Barcode EAN13 Text" Then
+            Printer.FontName = "Arial"
+            Printer.FontSize = 8
+        Else
+            Printer.FontSize = 24  ' Tamaño grande para código de barras
+        End If
+
         Printer.CurrentX = x + 18
         Printer.CurrentY = Y + 1
         Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13  ' Sin asteriscos para EAN13
@@ -417,7 +424,8 @@ Private Sub ImprimeEtiquetas()
         Printer.CurrentY = Y + 17
         Printer.FontSize = 12
         Printer.FontBold = True
-        Printer.Print "PVP: " & Format(etiquetasParaImprimir(indiceEtiqueta).PrecioConIVA, "#00.00#") & "€"
+        ' Usar Chr(128) para euro en VB6, o usar formato sin símbolo
+        Printer.Print "PVP: " & Format(etiquetasParaImprimir(indiceEtiqueta).PrecioConIVA, "0.00") & Chr(128)
         Printer.FontBold = False
 
         ' Avanzar a siguiente posición
@@ -631,12 +639,33 @@ If Not RsArtImpr Is Nothing Then
     Set Data.Recordset = RsArtImpr
 End If
 
+' Verificar si la fuente EAN13 está instalada
+Dim fuenteTest As String
+On Error Resume Next
+Printer.FontName = "Libre Barcode EAN13 Text"
+fuenteTest = Printer.FontName
+On Error GoTo ErrorHandler
+
 ' Mostrar mensaje inicial
-MsgBox "Formulario de etiquetas PrestaShop" & vbCrLf & _
-       "1. Introduzca el rango de IDs de productos" & vbCrLf & _
-       "2. Haga clic en 'Buscar en PrestaShop'" & vbCrLf & _
-       "3. Revise los productos encontrados" & vbCrLf & _
-       "4. Haga clic en 'Imprime con logo'", vbInformation, "Etiquetas PrestaShop"
+Dim mensaje As String
+mensaje = "Formulario de etiquetas PrestaShop" & vbCrLf & vbCrLf & _
+          "1. Introduzca el rango de IDs de productos" & vbCrLf & _
+          "2. Haga clic en 'Buscar en PrestaShop'" & vbCrLf & _
+          "3. Revise los productos encontrados" & vbCrLf & _
+          "4. Haga clic en 'Imprime con logo'"
+
+' Advertencia si no tiene la fuente EAN13
+If fuenteTest <> "Libre Barcode EAN13 Text" Then
+    mensaje = mensaje & vbCrLf & vbCrLf & _
+              "⚠️ ADVERTENCIA: Fuente EAN13 NO instalada" & vbCrLf & _
+              "Los códigos de barras NO serán escaneables." & vbCrLf & vbCrLf & _
+              "Descarga e instala la fuente (GRATIS):" & vbCrLf & _
+              "https://fonts.google.com/specimen/Libre+Barcode+EAN13+Text" & vbCrLf & vbCrLf & _
+              "Ver instrucciones: INSTALAR_FUENTE_EAN13.md"
+    MsgBox mensaje, vbExclamation, "Etiquetas PrestaShop"
+Else
+    MsgBox mensaje, vbInformation, "Etiquetas PrestaShop"
+End If
 
 Exit Sub
 

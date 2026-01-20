@@ -777,6 +777,10 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
     Dim respuesta As String
     respuesta = http.responseText
 
+    ' DEBUG: Mostrar respuesta del servidor
+    MsgBox "DEBUG - Respuesta del servidor:" & vbCrLf & vbCrLf & _
+           Left(respuesta, 500), vbInformation, "Debug API Response"
+
     ' Buscar "success":true
     If InStr(1, respuesta, """success"":true") = 0 And InStr(1, respuesta, """success"": true") = 0 Then
         MsgBox "Error en respuesta del servidor: " & Left(respuesta, 200), vbCritical

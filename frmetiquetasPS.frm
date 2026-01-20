@@ -777,11 +777,7 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
     Dim respuesta As String
     respuesta = http.responseText
 
-    ' DEBUG: Mostrar respuesta del servidor
-    MsgBox "DEBUG - Respuesta del servidor:" & vbCrLf & vbCrLf & _
-           Left(respuesta, 500), vbInformation, "Debug API Response"
-
-    ' Buscar "success":true
+    ' Buscar "success":true (con o sin espacios)
     If InStr(1, respuesta, """success"":true") = 0 And InStr(1, respuesta, """success"": true") = 0 Then
         MsgBox "Error en respuesta del servidor: " & Left(respuesta, 200), vbCritical
         GenerarImagenesCodigosBarras = False
@@ -821,11 +817,21 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
     posInicio = 1
 
     Do
-        ' Buscar "filename":"
-        posInicio = InStr(posInicio, respuesta, """filename"":""")
+        ' Buscar "filename" (con o sin espacios después de los dos puntos)
+        posInicio = InStr(posInicio, respuesta, """filename""")
         If posInicio = 0 Then Exit Do
 
-        posInicio = posInicio + Len("""filename"":""")
+        ' Avanzar hasta después de "filename"
+        posInicio = posInicio + Len("""filename""")
+
+        ' Buscar la siguiente comilla doble (inicio del valor)
+        posInicio = InStr(posInicio, respuesta, """")
+        If posInicio = 0 Then Exit Do
+
+        ' Avanzar hasta después de la comilla de apertura
+        posInicio = posInicio + 1
+
+        ' Buscar la comilla de cierre del valor
         posFin = InStr(posInicio, respuesta, """")
 
         If posFin > posInicio Then
@@ -912,14 +918,18 @@ Private Function GenerarImagenesCodigosBarras() As Boolean
         posInicio = posFin + 1
     Loop
 
-    ' Mostrar información de debug
-    If descargasExitosas = 0 Then
+    ' Mostrar información de debug solo si hay problemas
+    If descargasExitosas = 0 And intentosDescarga > 0 Then
         MsgBox "DEBUG - Descarga de códigos de barras:" & vbCrLf & vbCrLf & _
                "Intentos: " & intentosDescarga & vbCrLf & _
                "Exitosas: " & descargasExitosas & vbCrLf & _
                "URL base: " & urlBaseServidor & vbCrLf & _
                "Carpeta local: " & rutaBaseLocal & vbCrLf & vbCrLf & _
-               "Errores:" & debugMsg, vbExclamation, "Debug"
+               "Errores:" & debugMsg, vbExclamation, "Debug - Error en Descarga"
+    ElseIf descargasExitosas = 0 And intentosDescarga = 0 Then
+        MsgBox "DEBUG - No se encontraron archivos en la respuesta del API." & vbCrLf & vbCrLf & _
+               "Esto puede indicar que el JSON no se parseó correctamente." & vbCrLf & _
+               "Revise la respuesta del API en el log.", vbExclamation, "Debug - Parsing Fallido"
     End If
 
     If barcodeImages.Count = 0 Then

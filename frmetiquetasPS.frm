@@ -373,22 +373,34 @@ Private Sub ImprimeEtiquetas()
         ' Imprimir logo de Canela (esquina superior izquierda)
         Printer.PaintPicture Image1.Picture, x, Y, 10, 10
 
-        ' Imprimir código de barras EAN13 (parte superior derecha)
-        ' CRÍTICO: Para códigos ESCANEABLES necesitas instalar fuente EAN13
-        ' Descarga GRATIS: https://fonts.google.com/specimen/Libre+Barcode+EAN13+Text
-        ' Ver instrucciones detalladas en: INSTALAR_FUENTE_EAN13.md
+        ' Imprimir código de barras (parte superior derecha)
+        ' RECOMENDACIÓN: Usar Code128 en lugar de EAN13 para evitar problemas de checksum
+        ' EAN13 requiere checksum válido, Code128 acepta cualquier número
+        '
+        ' Fuente recomendada: "Libre Barcode 128 Text" (GRATIS)
+        ' Descarga: https://fonts.google.com/specimen/Libre+Barcode+128+Text
+        ' Ver instrucciones: INSTALAR_FUENTE_EAN13.md
         '
         ' Sin la fuente: Se imprime como texto normal (NO escaneable)
         ' Con la fuente: Se imprime como código de barras (SÍ escaneable)
 
         Dim fuenteDisponible As String
         On Error Resume Next
-        Printer.FontName = "Libre Barcode EAN13 Text"
+
+        ' Intentar Code128 primero (más flexible)
+        Printer.FontName = "Libre Barcode 128 Text"
         fuenteDisponible = Printer.FontName
+
+        ' Si no está, intentar EAN13
+        If fuenteDisponible <> "Libre Barcode 128 Text" Then
+            Printer.FontName = "Libre Barcode EAN13 Text"
+            fuenteDisponible = Printer.FontName
+        End If
+
         On Error GoTo sehodio
 
-        ' Si la fuente no se pudo aplicar, usar Arial como fallback
-        If fuenteDisponible <> "Libre Barcode EAN13 Text" Then
+        ' Si ninguna fuente de código de barras está disponible, usar Arial
+        If fuenteDisponible <> "Libre Barcode 128 Text" And fuenteDisponible <> "Libre Barcode EAN13 Text" Then
             Printer.FontName = "Arial"
             Printer.FontSize = 8
         Else
@@ -397,7 +409,7 @@ Private Sub ImprimeEtiquetas()
 
         Printer.CurrentX = x + 18
         Printer.CurrentY = Y + 1
-        Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13  ' Sin asteriscos para EAN13
+        Printer.Print etiquetasParaImprimir(indiceEtiqueta).EAN13  ' Sin asteriscos
 
         ' Imprimir número legible debajo del código de barras
         Printer.FontName = "Arial"
@@ -639,11 +651,23 @@ If Not RsArtImpr Is Nothing Then
     Set Data.Recordset = RsArtImpr
 End If
 
-' Verificar si la fuente EAN13 está instalada
+' Verificar si hay fuentes de código de barras instaladas
 Dim fuenteTest As String
+Dim tieneFuenteBarcode As Boolean
 On Error Resume Next
-Printer.FontName = "Libre Barcode EAN13 Text"
+
+' Intentar Code128 (recomendada)
+Printer.FontName = "Libre Barcode 128 Text"
 fuenteTest = Printer.FontName
+tieneFuenteBarcode = (fuenteTest = "Libre Barcode 128 Text")
+
+' Si no está Code128, intentar EAN13
+If Not tieneFuenteBarcode Then
+    Printer.FontName = "Libre Barcode EAN13 Text"
+    fuenteTest = Printer.FontName
+    tieneFuenteBarcode = (fuenteTest = "Libre Barcode EAN13 Text")
+End If
+
 On Error GoTo ErrorHandler
 
 ' Mostrar mensaje inicial
@@ -654,13 +678,15 @@ mensaje = "Formulario de etiquetas PrestaShop" & vbCrLf & vbCrLf & _
           "3. Revise los productos encontrados" & vbCrLf & _
           "4. Haga clic en 'Imprime con logo'"
 
-' Advertencia si no tiene la fuente EAN13
-If fuenteTest <> "Libre Barcode EAN13 Text" Then
+' Advertencia si no tiene fuente de código de barras
+If Not tieneFuenteBarcode Then
     mensaje = mensaje & vbCrLf & vbCrLf & _
-              "⚠️ ADVERTENCIA: Fuente EAN13 NO instalada" & vbCrLf & _
-              "Los códigos de barras NO serán escaneables." & vbCrLf & vbCrLf & _
-              "Descarga e instala la fuente (GRATIS):" & vbCrLf & _
-              "https://fonts.google.com/specimen/Libre+Barcode+EAN13+Text" & vbCrLf & vbCrLf & _
+              "⚠️ ADVERTENCIA: Fuente de código de barras NO instalada" & vbCrLf & _
+              "Los códigos NO serán escaneables." & vbCrLf & vbCrLf & _
+              "RECOMENDADO: Libre Barcode 128 Text (GRATIS)" & vbCrLf & _
+              "https://fonts.google.com/specimen/Libre+Barcode+128+Text" & vbCrLf & vbCrLf & _
+              "ALTERNATIVA: Libre Barcode EAN13 Text" & vbCrLf & _
+              "(requiere EAN13 con checksum válido)" & vbCrLf & vbCrLf & _
               "Ver instrucciones: INSTALAR_FUENTE_EAN13.md"
     MsgBox mensaje, vbExclamation, "Etiquetas PrestaShop"
 Else

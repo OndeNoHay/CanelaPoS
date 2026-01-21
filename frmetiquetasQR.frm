@@ -359,6 +359,9 @@ Dim numProductosPS As Integer
 Dim etiquetasParaImprimir() As EtiquetaImpresion
 Dim numEtiquetas As Integer
 
+' Variable de control para saber si el WebBrowser está listo
+Dim qrListo As Boolean
+
 Private Sub Check1_Click()
 If Check1.Value = 1 Then
     cmbcolumna.Enabled = True
@@ -387,6 +390,13 @@ Private Sub ImprimeEtiquetas()
     Dim indiceEtiqueta As Integer
 
     On Error GoTo sehodio
+
+    ' Verificar que el generador de QR está listo
+    If Not qrListo Then
+        MsgBox "El generador de códigos QR aún no está listo." & vbCrLf & _
+               "Por favor espere unos segundos y vuelva a intentar.", vbExclamation, "QR no listo"
+        Exit Sub
+    End If
 
     ' Verificar que hay etiquetas para imprimir
     If numEtiquetas = 0 Then
@@ -694,6 +704,7 @@ Next i
 ' NO cargar datos de BD local - los productos se buscarán en PrestaShop
 numProductosPS = 0
 numEtiquetas = 0
+qrListo = False
 
 ' Crear recordset vacío temporal para el grid
 Set RsArtImpr = CrearRecordsetVacio()
@@ -702,19 +713,65 @@ If Not RsArtImpr Is Nothing Then
     Set Data.Recordset = RsArtImpr
 End If
 
+' Deshabilitar botón de imprimir hasta que WebBrowser esté listo
+Command1.Enabled = False
+Command1.Caption = "Cargando QR..."
+
 ' Cargar HTML con generador de QR en WebBrowser
 Dim htmlPath As String
 htmlPath = App.Path & "\qr_generator.html"
 If Dir(htmlPath) <> "" Then
     WebBrowser1.Navigate htmlPath
+    ' El evento DocumentComplete habilitará el botón cuando esté listo
 Else
     MsgBox "Advertencia: No se encontró qr_generator.html. La generación de códigos QR no funcionará.", vbExclamation
+    Command1.Caption = "ERROR: Sin QR"
 End If
 
 Exit Sub
 
 ErrorHandler:
     MsgBox "Error al inicializar formulario: " & Err.Description, vbCritical
+End Sub
+
+'******************************************************************************
+'* EVENTO: WebBrowser1_DocumentComplete
+'* PROPÓSITO: Se dispara cuando el WebBrowser termina de cargar el HTML
+'******************************************************************************
+Private Sub WebBrowser1_DocumentComplete(ByVal pDisp As Object, URL As Variant)
+    On Error Resume Next
+
+    ' Verificar que JavaScript está listo
+    Dim intentos As Integer
+    Dim jsReady As Boolean
+
+    For intentos = 1 To 20
+        jsReady = False
+        If Not WebBrowser1.Document Is Nothing Then
+            If Not WebBrowser1.Document.parentWindow Is Nothing Then
+                jsReady = WebBrowser1.Document.parentWindow.qrReady
+            End If
+        End If
+
+        If jsReady = True Then Exit For
+        Sleep 100
+        DoEvents
+    Next intentos
+
+    If jsReady Then
+        qrListo = True
+        Command1.Enabled = True
+        Command1.Caption = "Imprime con QR"
+        ' Opcional: Mostrar mensaje de confirmación
+        ' MsgBox "Sistema de códigos QR listo para usar", vbInformation, "QR Listo"
+    Else
+        qrListo = False
+        Command1.Enabled = False
+        Command1.Caption = "ERROR: QR no disponible"
+        MsgBox "El generador de códigos QR no se pudo inicializar correctamente." & vbCrLf & _
+               "Verifique que el archivo qr_generator.html existe y está en la carpeta de la aplicación.", _
+               vbExclamation, "Error QR"
+    End If
 End Sub
 
 Private Sub Text1_Change()
@@ -897,122 +954,75 @@ Private Function GenerarQRCode(ByVal texto As String, ByVal tamanoMM As Integer)
     Dim base64Data As String
     Dim tempFile As String
     Dim pic As Object
-    Dim retryCount As Integer
-    Dim maxRetries As Integer
-    Dim i As Integer
-    Dim debugMsg As String
+    Dim tamanoPixeles As Integer
+
+    Static primeraVez As Boolean  ' Para mostrar debug solo una vez
+    Static errorCount As Integer  ' Contador de errores
 
     Set GenerarQRCode = Nothing
-    maxRetries = 50
-    retryCount = 0
 
-    ' Debug: verificar estado del WebBrowser
-    debugMsg = "WebBrowser ReadyState: " & WebBrowser1.ReadyState & vbCrLf
-
-    ' Esperar a que el WebBrowser esté listo (ReadyState = 4 = READYSTATE_COMPLETE)
-    Do While WebBrowser1.ReadyState <> 4 And retryCount < maxRetries
-        Sleep 100  ' Esperar 100ms
-        DoEvents
-        retryCount = retryCount + 1
-    Loop
-
-    If WebBrowser1.ReadyState <> 4 Then
-        debugMsg = debugMsg & "WebBrowser no está listo" & vbCrLf
-        MsgBox debugMsg, vbExclamation, "Debug QR"
-        Exit Function
-    End If
-
-    debugMsg = debugMsg & "WebBrowser listo" & vbCrLf
-
-    ' Verificar que JavaScript está listo
-    retryCount = 0
-    Dim jsReady As Boolean
-    jsReady = False
-
-    Do While retryCount < maxRetries
-        On Error Resume Next
-        jsReady = False
-        If Not WebBrowser1.Document Is Nothing Then
-            If Not WebBrowser1.Document.parentWindow Is Nothing Then
-                jsReady = WebBrowser1.Document.parentWindow.qrReady
-            End If
+    ' El WebBrowser ya debería estar listo (verificado en DocumentComplete)
+    ' Pero hacemos una verificación rápida por seguridad
+    If WebBrowser1.ReadyState <> 4 Or Not qrListo Then
+        errorCount = errorCount + 1
+        If errorCount = 1 Then
+            MsgBox "El WebBrowser no está listo. Esto no debería ocurrir." & vbCrLf & _
+                   "Intente cerrar y abrir el formulario nuevamente.", vbExclamation, "Error QR"
         End If
-        On Error GoTo ErrorHandler
-
-        If jsReady = True Then Exit Do
-        Sleep 100
-        DoEvents
-        retryCount = retryCount + 1
-    Loop
-
-    If Not jsReady Then
-        debugMsg = debugMsg & "JavaScript no está listo" & vbCrLf
-        MsgBox debugMsg, vbExclamation, "Debug QR"
         Exit Function
     End If
-
-    debugMsg = debugMsg & "JavaScript listo" & vbCrLf
 
     ' Convertir mm a píxeles (aproximadamente 3.78 píxeles por mm para 96 DPI)
-    Dim tamanoPixeles As Integer
     tamanoPixeles = Int(tamanoMM * 3.78)
     If tamanoPixeles < 50 Then tamanoPixeles = 50  ' Mínimo 50px
 
-    debugMsg = debugMsg & "Tamaño: " & tamanoPixeles & "px" & vbCrLf
-    debugMsg = debugMsg & "Texto: " & texto & vbCrLf
-
     ' Llamar a la función JavaScript para generar QR
     On Error Resume Next
-    base64Data = ""
     base64Data = WebBrowser1.Document.parentWindow.GenerateQRCode(texto, tamanoPixeles)
 
     If Err.Number <> 0 Then
-        debugMsg = debugMsg & "Error JS: " & Err.Description & vbCrLf
+        errorCount = errorCount + 1
+        If errorCount = 1 Then
+            MsgBox "Error al llamar a JavaScript: " & Err.Description, vbCritical, "Error QR"
+        End If
         On Error GoTo ErrorHandler
-        MsgBox debugMsg, vbCritical, "Debug QR"
         Exit Function
     End If
     On Error GoTo ErrorHandler
 
     If base64Data = "" Or Left(base64Data, 5) = "ERROR" Then
-        debugMsg = debugMsg & "Base64 vacío o error: " & Left(base64Data, 50) & vbCrLf
-        MsgBox debugMsg, vbExclamation, "Debug QR"
+        errorCount = errorCount + 1
+        If errorCount = 1 Then
+            MsgBox "JavaScript no pudo generar el QR: " & Left(base64Data, 100), vbExclamation, "Error QR"
+        End If
         Exit Function
     End If
 
-    debugMsg = debugMsg & "Base64 OK (len=" & Len(base64Data) & ")" & vbCrLf
-
-    ' Crear archivo temporal para la imagen con timestamp único
-    tempFile = Environ("TEMP") & "\qr_temp_" & Format(Now, "hhnnssms") & "_" & Int(Rnd * 10000) & ".bmp"
+    ' Crear archivo temporal con timestamp único
+    tempFile = Environ("TEMP") & "\qr_temp_" & Format(Now, "hhnnss") & "_" & Int(Rnd * 10000) & ".bmp"
 
     ' Decodificar base64 y guardar como archivo
     If Not Base64ToFile(base64Data, tempFile) Then
-        debugMsg = debugMsg & "Error al guardar archivo" & vbCrLf
-        MsgBox debugMsg, vbCritical, "Debug QR"
+        errorCount = errorCount + 1
+        If errorCount = 1 Then
+            MsgBox "Error al decodificar base64 o guardar archivo", vbCritical, "Error QR"
+        End If
         Exit Function
     End If
-
-    debugMsg = debugMsg & "Archivo guardado: " & tempFile & vbCrLf
 
     ' Cargar imagen desde archivo
     On Error Resume Next
     Set pic = LoadPicture(tempFile)
 
-    If Err.Number <> 0 Then
-        debugMsg = debugMsg & "Error LoadPicture: " & Err.Description & vbCrLf
+    If Err.Number <> 0 Or pic Is Nothing Then
+        errorCount = errorCount + 1
+        If errorCount = 1 Then
+            MsgBox "Error al cargar imagen: " & Err.Description, vbCritical, "Error QR"
+        End If
         On Error GoTo ErrorHandler
-        MsgBox debugMsg, vbCritical, "Debug QR"
         Exit Function
     End If
     On Error GoTo ErrorHandler
-
-    If pic Is Nothing Then
-        debugMsg = debugMsg & "pic es Nothing después de LoadPicture" & vbCrLf
-        MsgBox debugMsg, vbCritical, "Debug QR"
-        Exit Function
-    End If
-
-    debugMsg = debugMsg & "LoadPicture OK" & vbCrLf
 
     ' Eliminar archivo temporal
     On Error Resume Next
@@ -1021,18 +1031,22 @@ Private Function GenerarQRCode(ByVal texto As String, ByVal tamanoMM As Integer)
 
     Set GenerarQRCode = pic
 
-    ' Debug: Mostrar solo en la primera etiqueta
-    Static primeraVez As Boolean
+    ' Mensaje de éxito solo la primera vez
     If Not primeraVez Then
-        MsgBox debugMsg & "¡QR generado con éxito!", vbInformation, "Debug QR"
+        ' Comentado para producción - descomentar si quieres ver confirmación
+        ' MsgBox "¡Primer QR generado con éxito!" & vbCrLf & _
+        '        "Tamaño: " & tamanoPixeles & "px (" & tamanoMM & "mm)", vbInformation, "QR OK"
         primeraVez = True
+        errorCount = 0  ' Reset del contador de errores tras primer éxito
     End If
 
     Exit Function
 
 ErrorHandler:
-    debugMsg = debugMsg & "Error: " & Err.Number & " - " & Err.Description & vbCrLf
-    MsgBox debugMsg, vbCritical, "Error QR"
+    errorCount = errorCount + 1
+    If errorCount = 1 Then
+        MsgBox "Error inesperado: " & Err.Number & " - " & Err.Description, vbCritical, "Error QR"
+    End If
     Set GenerarQRCode = Nothing
 End Function
 

@@ -3,88 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <title>QR Code Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: white;
+            font-family: Arial, sans-serif;
+        }
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        #testQR { margin-top: 20px; }
+    </style>
 </head>
 <body>
+    <h2>Generador de Códigos QR</h2>
+    <div id="status">Inicializando...</div>
+    <div id="testQR"></div>
     <canvas id="qrcanvas" style="display:none;"></canvas>
 
+    <!-- Cargar biblioteca QR externa -->
+    <script src="qrcode.min.js"></script>
+
     <script>
-    // Minimal QR Code Generator
-    // Based on public domain QR code generator by Project Nayuki
-    // Simplified for EAN13 codes
+    // Variables globales
+    var qrGenerator = null;
+    var statusDiv = document.getElementById('status');
 
-    function generateQR(text) {
-        // Use Google Charts API to generate QR (works offline after first load)
-        // Or for a truly offline solution, use a data matrix pattern
-
-        var size = 200;
-        var canvas = document.getElementById('qrcanvas');
-        canvas.width = size;
-        canvas.height = size;
-        var ctx = canvas.getContext('2d');
-
-        // Create a simple data matrix pattern (not a real QR but scannable by some readers)
-        var cellSize = 8;
-        var cols = Math.floor(size / cellSize);
-        var rows = Math.floor(size / cellSize);
-
-        // White background
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, size, size);
-
-        // Convert text to bit pattern
-        var bits = [];
-        for (var i = 0; i < text.length; i++) {
-            var charCode = text.charCodeAt(i);
-            for (var b = 7; b >= 0; b--) {
-                bits.push((charCode >> b) & 1);
-            }
-        }
-
-        // Draw pattern
-        ctx.fillStyle = '#000000';
-        var bitIndex = 0;
-
-        // Add border (finder pattern markers)
-        for (var i = 0; i < 3; i++) {
-            for (var j = 0; j < 3; j++) {
-                ctx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
-                ctx.fillRect((cols - 3 + i) * cellSize, j * cellSize, cellSize, cellSize);
-                ctx.fillRect(i * cellSize, (rows - 3 + j) * cellSize, cellSize, cellSize);
-            }
-        }
-
-        // Draw data
-        for (var row = 3; row < rows - 3; row++) {
-            for (var col = 3; col < cols - 3; col++) {
-                if (bitIndex < bits.length && bits[bitIndex] === 1) {
-                    ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-                }
-                bitIndex++;
-                if (bitIndex >= bits.length) bitIndex = 0;
-            }
-        }
-
+    // Verificar que la biblioteca se cargó correctamente
+    function checkLibrary() {
         try {
-            return canvas.toDataURL('image/png');
+            // La biblioteca de kazuhikoarase expone 'qrcode' en el objeto window
+            if (typeof qrcode === 'undefined') {
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = '<strong>ERROR:</strong> No se pudo cargar qrcode.min.js<br>' +
+                                     'Verifique que el archivo existe en la carpeta de la aplicación.';
+                console.error('qrcode library not found');
+                return false;
+            }
+
+            statusDiv.className = 'success';
+            statusDiv.innerHTML = '<strong>✓ Biblioteca QR cargada correctamente</strong><br>' +
+                                 'Tipo de corrección de errores: L (Low) - 7%<br>' +
+                                 'Sistema listo para generar códigos QR';
+            console.log('QR library loaded successfully');
+            return true;
+
         } catch(e) {
-            return 'ERROR: ' + e.message;
+            statusDiv.className = 'error';
+            statusDiv.innerHTML = '<strong>ERROR:</strong> ' + e.message;
+            console.error('Error checking library:', e);
+            return false;
         }
     }
 
-    // Main function for VB6
+    // Generar código QR y retornar como imagen base64
     function GenerateQRCode(text, size) {
         try {
-            return generateQR(text);
+            if (typeof qrcode === 'undefined') {
+                return 'ERROR: Biblioteca QR no cargada';
+            }
+
+            if (!text || text.length === 0) {
+                return 'ERROR: Texto vacío';
+            }
+
+            // Asegurar tamaño mínimo
+            size = size || 200;
+            if (size < 50) size = 50;
+
+            // Crear instancia de QR
+            // typeNumber: 0 = automático (detecta el mejor tamaño)
+            // errorCorrectionLevel: 'L' = Low (7%), 'M' = Medium (15%), 'Q' = Quartile (25%), 'H' = High (30%)
+            var qr = qrcode(0, 'L');
+            qr.addData(text);
+            qr.make();
+
+            // Obtener el tamaño de la matriz QR
+            var moduleCount = qr.getModuleCount();
+
+            // Calcular tamaño de cada módulo (celda)
+            var cellSize = Math.floor(size / moduleCount);
+            var actualSize = cellSize * moduleCount;
+
+            // Crear canvas
+            var canvas = document.getElementById('qrcanvas');
+            canvas.width = actualSize;
+            canvas.height = actualSize;
+            var ctx = canvas.getContext('2d');
+
+            // Fondo blanco
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, actualSize, actualSize);
+
+            // Dibujar módulos del QR
+            ctx.fillStyle = '#000000';
+            for (var row = 0; row < moduleCount; row++) {
+                for (var col = 0; col < moduleCount; col++) {
+                    if (qr.isDark(row, col)) {
+                        ctx.fillRect(
+                            col * cellSize,
+                            row * cellSize,
+                            cellSize,
+                            cellSize
+                        );
+                    }
+                }
+            }
+
+            // Convertir a base64
+            // Intentar BMP primero, si falla usar PNG
+            try {
+                return canvas.toDataURL('image/bmp');
+            } catch(e) {
+                return canvas.toDataURL('image/png');
+            }
+
         } catch(e) {
+            console.error('Error generating QR:', e);
             return 'ERROR: ' + e.message;
         }
     }
 
-    // Expose to window
-    window.GenerateQRCode = GenerateQRCode;
-    window.qrReady = true;
+    // Función de prueba
+    function testQR() {
+        try {
+            var testEAN = '2410788252771';
+            var result = GenerateQRCode(testEAN, 200);
 
-    console.log('Simple pattern generator ready');
+            if (result.indexOf('ERROR') === -1 && result.indexOf('data:image') === 0) {
+                // Mostrar QR de prueba
+                var img = document.createElement('img');
+                img.src = result;
+                img.style.border = '1px solid #ccc';
+                img.style.padding = '10px';
+                img.title = 'QR de prueba: ' + testEAN;
+
+                var testDiv = document.getElementById('testQR');
+                testDiv.innerHTML = '<strong>QR de prueba generado:</strong><br>';
+                testDiv.appendChild(img);
+                testDiv.innerHTML += '<br><small>EAN13: ' + testEAN + '</small>';
+
+                console.log('Test QR generated successfully, base64 length:', result.length);
+            } else {
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = '<strong>ERROR en prueba:</strong> ' + result;
+                console.error('Test failed:', result);
+            }
+        } catch(e) {
+            statusDiv.className = 'error';
+            statusDiv.innerHTML = '<strong>ERROR en prueba:</strong> ' + e.message;
+            console.error('Test error:', e);
+        }
+    }
+
+    // Exponer funciones para VB6
+    window.GenerateQRCode = GenerateQRCode;
+    window.qrReady = false;
+
+    // Inicializar cuando cargue la página
+    window.onload = function() {
+        console.log('Page loaded, checking library...');
+
+        // Verificar biblioteca
+        if (checkLibrary()) {
+            window.qrReady = true;
+
+            // Generar QR de prueba
+            testQR();
+
+            console.log('QR Generator ready for use from VB6');
+        } else {
+            window.qrReady = false;
+            console.error('QR Generator failed to initialize');
+        }
+    };
+
+    // Manejo de errores del script externo
+    window.addEventListener('error', function(e) {
+        if (e.filename && e.filename.indexOf('qrcode.min.js') !== -1) {
+            statusDiv.className = 'error';
+            statusDiv.innerHTML = '<strong>ERROR:</strong> No se pudo cargar qrcode.min.js<br>' +
+                                 'Archivo: ' + e.filename + '<br>' +
+                                 'Asegúrese de que el archivo está en la carpeta de la aplicación.';
+            window.qrReady = false;
+        }
+    }, true);
     </script>
 </body>
 </html>

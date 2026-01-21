@@ -303,11 +303,6 @@ Dim numProductosPS As Integer
 Dim etiquetasParaImprimir() As EtiquetaImpresion
 Dim numEtiquetas As Integer
 
-' Variables para imágenes de códigos de barras
-Dim barcodeImages As Collection  ' Colección de Picture objects indexados por EAN13
-Dim barcodeFilenames As Collection  ' Colección de nombres de archivo para limpieza
-Dim rutaServidorPHP As String  ' Ruta UNC o local al servidor PHP
-
 Private Sub Check1_Click()
 If Check1.Value = 1 Then
     cmbcolumna.Enabled = True
@@ -378,30 +373,15 @@ Private Sub ImprimeEtiquetas()
         ' Imprimir logo de Canela (esquina superior izquierda)
         Printer.PaintPicture Image1.Picture, x, Y, 10, 10
 
-        ' Imprimir código de barras como IMAGEN (parte superior derecha)
-        ' Las imágenes se generan via PHP usando el API bridge
-        ' Esto garantiza compatibilidad 100% con scanners
-
+        ' Imprimir código de barras con fuente IDAutomationHC39M (Code 39)
         Dim ean13 As String
         ean13 = Trim(etiquetasParaImprimir(indiceEtiqueta).EAN13)
 
-        On Error Resume Next
-        Dim barcodeImg As Object  ' Picture object (evita requerir referencia StdPicture)
-        Set barcodeImg = barcodeImages(ean13)
-        On Error GoTo sehodio
-
-        If Not barcodeImg Is Nothing Then
-            ' Imprimir imagen del código de barras
-            ' Dimensiones: 35mm ancho x 10mm alto (ajustadas para A4)
-            Printer.PaintPicture barcodeImg, x + 15, Y, 35, 10
-        Else
-            ' Fallback: Imprimir texto si no hay imagen
-            Printer.FontName = "Arial"
-            Printer.FontSize = 8
-            Printer.CurrentX = x + 22
-            Printer.CurrentY = Y + 1
-            Printer.Print ean13
-        End If
+        Printer.FontName = "IDAutomationHC39M"
+        Printer.FontSize = 10
+        Printer.CurrentX = x + 22
+        Printer.CurrentY = Y
+        Printer.Print "*" & ean13 & "*"
 
         ' Imprimir nombre del producto (debajo del logo)
         Printer.FontName = "Arial"
@@ -578,19 +558,6 @@ Private Sub Command3_Click()
     ' Poblar el grid con los datos
     PoblarGridConProductos
 
-    ' Generar imágenes de códigos de barras
-    lbnumero.Caption = "Generando códigos de barras..."
-    DoEvents
-
-    Dim resultadoBarcode As Boolean
-    resultadoBarcode = GenerarImagenesCodigosBarras()
-
-    If Not resultadoBarcode Then
-        Me.MousePointer = vbDefault
-        MsgBox "Error al generar imágenes de códigos de barras." & vbCrLf & _
-               "Las etiquetas se imprimirán sin códigos de barras.", vbExclamation
-    End If
-
     ' Actualizar contador
     lbnumero.Caption = "Productos: " & numProductosPS & " | Etiquetas: " & numEtiquetas
 
@@ -642,48 +609,12 @@ Next i
 numProductosPS = 0
 numEtiquetas = 0
 
-' Inicializar colecciones para imágenes de códigos de barras
-Set barcodeImages = New Collection
-Set barcodeFilenames = New Collection
-rutaServidorPHP = App.Path  ' Ruta base de la aplicación
-
 ' Crear recordset vacío temporal para el grid
 Set RsArtImpr = CrearRecordsetVacio()
 
 If Not RsArtImpr Is Nothing Then
     Set Data.Recordset = RsArtImpr
 End If
-
-' Verificar si hay fuentes de código de barras instaladas
-Dim fuenteTest As String
-Dim tieneFuenteBarcode As Boolean
-On Error Resume Next
-
-' Intentar Code128 (recomendada)
-Printer.FontName = "Libre Barcode 128 Text"
-fuenteTest = Printer.FontName
-tieneFuenteBarcode = (fuenteTest = "Libre Barcode 128 Text")
-
-' Si no está Code128, intentar EAN13
-If Not tieneFuenteBarcode Then
-    Printer.FontName = "Libre Barcode EAN13 Text"
-    fuenteTest = Printer.FontName
-    tieneFuenteBarcode = (fuenteTest = "Libre Barcode EAN13 Text")
-End If
-
-On Error GoTo ErrorHandler
-
-' Mostrar mensaje inicial
-Dim mensaje As String
-mensaje = "Formulario de etiquetas PrestaShop" & vbCrLf & vbCrLf & _
-          "1. Introduzca el rango de IDs de productos" & vbCrLf & _
-          "2. Haga clic en 'Buscar en PrestaShop'" & vbCrLf & _
-          "3. Revise los productos encontrados" & vbCrLf & _
-          "4. Haga clic en 'Imprime con logo'" & vbCrLf & vbCrLf & _
-          "NOTA: Los códigos de barras se generan como imágenes" & vbCrLf & _
-          "para garantizar compatibilidad con scanners."
-
-MsgBox mensaje, vbInformation, "Etiquetas PrestaShop"
 
 Exit Sub
 
@@ -716,256 +647,10 @@ End Sub
 ' GENERACIÓN DE IMÁGENES DE CÓDIGOS DE BARRAS
 ' ========================================================================
 
-Private Function GenerarImagenesCodigosBarras() As Boolean
-    ' Genera imágenes de códigos de barras usando el API bridge
-    ' Retorna True si se generaron correctamente, False si hubo error
-
-    On Error GoTo ErrorHandler
-
-    ' 1. Recolectar todos los EAN13 únicos
-    Dim ean13sUnicos As Collection
-    Set ean13sUnicos = New Collection
-    Dim ean13 As String
-    Dim i As Integer
-
-    For i = 1 To numEtiquetas
-        ean13 = Trim(etiquetasParaImprimir(i).EAN13)
-
-        If Len(ean13) > 0 Then
-            ' Intentar agregar a colección (ignora duplicados)
-            On Error Resume Next
-            ean13sUnicos.Add ean13, ean13  ' Key = ean13 para evitar duplicados
-            On Error GoTo ErrorHandler
-        End If
-    Next i
-
-    If ean13sUnicos.Count = 0 Then
-        GenerarImagenesCodigosBarras = False
-        Exit Function
-    End If
-
-    ' 2. Construir JSON array
-    Dim jsonArray As String
-    jsonArray = "["
-
-    For i = 1 To ean13sUnicos.Count
-        If i > 1 Then jsonArray = jsonArray & ","
-        jsonArray = jsonArray & """" & ean13sUnicos(i) & """"
-    Next i
-
-    jsonArray = jsonArray & "]"
-
-    ' 3. Hacer POST al API
-    Dim http As Object
-    Set http = CreateObject("MSXML2.XMLHTTP")
-
-    Dim urlAPI As String
-    ' IMPORTANTE: Cambiar esta URL según tu configuración
-    urlAPI = "http://canelamoda.es/api_bridge/bridge.php?action=generar_codigos_barras"
-
-    http.Open "POST", urlAPI, False
-    http.setRequestHeader "Content-Type", "application/json"
-    http.send jsonArray
-
-    If http.Status <> 200 Then
-        MsgBox "Error al generar códigos de barras: HTTP " & http.Status, vbCritical
-        GenerarImagenesCodigosBarras = False
-        Exit Function
-    End If
-
-    ' 4. Parsear respuesta JSON
-    Dim respuesta As String
-    respuesta = http.responseText
-
-    ' Buscar "success":true (con o sin espacios)
-    If InStr(1, respuesta, """success"":true") = 0 And InStr(1, respuesta, """success"": true") = 0 Then
-        MsgBox "Error en respuesta del servidor: " & Left(respuesta, 200), vbCritical
-        GenerarImagenesCodigosBarras = False
-        Exit Function
-    End If
-
-    ' 5. Extraer rutas de archivos, descargar imágenes y cargarlas
-    ' Limpiar colecciones anteriores
-    Set barcodeImages = New Collection
-    Set barcodeFilenames = New Collection
-
-    ' Crear carpeta temporal LOCAL para descargar las imágenes
-    Dim rutaBaseLocal As String
-    rutaBaseLocal = App.Path & "\temp_barcodes\"
-
-    On Error Resume Next
-    MkDir rutaBaseLocal  ' Crear si no existe
-    On Error GoTo ErrorHandler
-
-    ' URL base del servidor para descargar imágenes
-    Dim urlBaseServidor As String
-    urlBaseServidor = "http://canelamoda.es/api_bridge/temp_barcodes/"
-
-    ' Parsear los filenames del JSON (simple parsing sin biblioteca)
-    Dim posInicio As Long
-    Dim posFin As Long
-    Dim filename As String
-    Dim ean13Key As String
-    Dim httpDownload As Object
-    Dim rutaArchivoLocal As String
-    Dim intentosDescarga As Integer
-    Dim descargasExitosas As Integer
-    Dim debugMsg As String
-
-    intentosDescarga = 0
-    descargasExitosas = 0
-    posInicio = 1
-
-    Do
-        ' Buscar "filename" (con o sin espacios después de los dos puntos)
-        posInicio = InStr(posInicio, respuesta, """filename""")
-        If posInicio = 0 Then Exit Do
-
-        ' Avanzar hasta después de "filename"
-        posInicio = posInicio + Len("""filename""")
-
-        ' Buscar la siguiente comilla doble (inicio del valor)
-        posInicio = InStr(posInicio, respuesta, """")
-        If posInicio = 0 Then Exit Do
-
-        ' Avanzar hasta después de la comilla de apertura
-        posInicio = posInicio + 1
-
-        ' Buscar la comilla de cierre del valor
-        posFin = InStr(posInicio, respuesta, """")
-
-        If posFin > posInicio Then
-            filename = Mid(respuesta, posInicio, posFin - posInicio)
-            intentosDescarga = intentosDescarga + 1
-
-            ' Extraer EAN13 del filename (formato: barcode_EAN13_timestamp_random.png)
-            Dim partes() As String
-            partes = Split(filename, "_")
-            If UBound(partes) >= 1 Then
-                ean13Key = partes(1)  ' EAN13 está en la segunda parte
-
-                ' DESCARGAR imagen del servidor HTTP
-                On Error Resume Next
-                Set httpDownload = CreateObject("MSXML2.XMLHTTP")
-
-                Dim urlDescarga As String
-                urlDescarga = urlBaseServidor & filename
-
-                httpDownload.Open "GET", urlDescarga, False
-                httpDownload.send
-
-                Dim httpStatus As Long
-                httpStatus = httpDownload.Status
-
-                On Error GoTo ErrorHandler
-
-                If httpStatus = 200 Then
-                    ' Guardar imagen en carpeta local temporal
-                    rutaArchivoLocal = rutaBaseLocal & filename
-
-                    ' Escribir bytes de la imagen a archivo local
-                    On Error Resume Next
-                    Dim stream As Object
-                    Set stream = CreateObject("ADODB.Stream")
-                    stream.Type = 1  ' adTypeBinary
-                    stream.Open
-                    stream.Write httpDownload.responseBody
-                    stream.SaveToFile rutaArchivoLocal, 2  ' adSaveCreateOverWrite
-                    stream.Close
-                    Set stream = Nothing
-
-                    Dim saveError As String
-                    saveError = ""
-                    If Err.Number <> 0 Then
-                        saveError = Err.Description
-                        Err.Clear
-                    End If
-                    On Error GoTo ErrorHandler
-
-                    If saveError = "" Then
-                        ' Cargar imagen BMP desde archivo LOCAL
-                        ' BMP tiene soporte nativo perfecto en VB6
-                        Dim pic As Object
-                        On Error Resume Next
-                        Set pic = LoadPicture(rutaArchivoLocal)
-
-                        Dim loadError As String
-                        loadError = ""
-                        If Err.Number <> 0 Then
-                            loadError = Err.Description
-                            Err.Clear
-                        End If
-                        On Error GoTo ErrorHandler
-
-                        If Not pic Is Nothing And loadError = "" Then
-                            ' Guardar en colección indexada por EAN13
-                            barcodeImages.Add pic, ean13Key
-                            barcodeFilenames.Add filename
-                            descargasExitosas = descargasExitosas + 1
-                        Else
-                            debugMsg = debugMsg & vbCrLf & "❌ LoadPicture falló: " & filename & " - " & loadError
-                        End If
-                    Else
-                        debugMsg = debugMsg & vbCrLf & "❌ SaveToFile falló: " & filename & " - " & saveError
-                    End If
-                Else
-                    debugMsg = debugMsg & vbCrLf & "❌ HTTP " & httpStatus & ": " & urlDescarga
-                End If
-
-                Set httpDownload = Nothing
-            End If
-        End If
-
-        posInicio = posFin + 1
-    Loop
-
-    ' Verificar resultado
-    If barcodeImages.Count = 0 Then
-        ' Mostrar error detallado solo si hubo problemas
-        If intentosDescarga > 0 Then
-            MsgBox "Error al cargar códigos de barras:" & vbCrLf & vbCrLf & _
-                   "Intentos: " & intentosDescarga & vbCrLf & _
-                   "Exitosas: " & descargasExitosas & vbCrLf & vbCrLf & _
-                   "Detalles:" & debugMsg, vbCritical, "Error"
-        End If
-        GenerarImagenesCodigosBarras = False
-        Exit Function
-    End If
-
-    GenerarImagenesCodigosBarras = True
-    Exit Function
-
-ErrorHandler:
-    MsgBox "Error al generar imágenes de códigos de barras: " & Err.Description, vbCritical
-    GenerarImagenesCodigosBarras = False
-End Function
 
 Private Sub Form_Unload(Cancel As Integer)
-    ' Limpiar tabla temporal y archivos de códigos de barras al cerrar el formulario
+    ' Limpiar tabla temporal al cerrar el formulario
     On Error Resume Next
-
-    ' Limpiar imágenes de códigos de barras
-    If Not barcodeImages Is Nothing Then
-        Set barcodeImages = Nothing
-    End If
-
-    ' Eliminar archivos temporales de códigos de barras (carpeta LOCAL)
-    If Not barcodeFilenames Is Nothing Then
-        Dim filename As Variant
-        Dim rutaBaseLocal As String
-        rutaBaseLocal = App.Path & "\temp_barcodes\"
-
-        For Each filename In barcodeFilenames
-            Kill rutaBaseLocal & filename  ' Eliminar archivo local
-        Next filename
-
-        Set barcodeFilenames = Nothing
-
-        ' Intentar eliminar la carpeta temporal si está vacía
-        On Error Resume Next
-        RmDir rutaBaseLocal
-        On Error GoTo 0
-    End If
 
     ' Desvincular recordset del control Data
     Set Data.Recordset = Nothing

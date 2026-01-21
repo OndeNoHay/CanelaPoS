@@ -1,6 +1,5 @@
 VERSION 5.00
 Object = "{00028C01-0000-0000-0000-000000000046}#1.0#0"; "dbgrid32.ocx"
-Object = "{8856F961-340A-11D0-A96B-00C04FD705A2}#1.0#0"; "mswebbrw.dll"
 Begin VB.Form FrmEtiquetasQR
    Caption         =   "Etiquetas PrestaShop con QR"
    ClientHeight    =   7935
@@ -12,31 +11,15 @@ Begin VB.Form FrmEtiquetasQR
    ScaleMode       =   6  'Millimeter
    ScaleWidth      =   231.775
    StartUpPosition =   3  'Windows Default
-   Begin SHDocVwCtl.WebBrowser WebBrowser1
+   Begin VB.PictureBox QRCodePicture
       Height          =   15
       Left            =   0
+      ScaleHeight     =   9
+      ScaleWidth      =   9
       TabIndex        =   31
       Top             =   0
       Visible         =   0   'False
       Width           =   15
-      ExtentX         =   26
-      ExtentY         =   26
-      ViewMode        =   0
-      Offline         =   0
-      Silent          =   0
-      RegisterAsBrowser=   0
-      RegisterAsDropTarget=   0
-      AutoArrange     =   0   'False
-      NoClientEdge    =   0   'False
-      AlignLeft       =   0   'False
-      NoWebView       =   0   'False
-      HideFileNames   =   0   'False
-      SingleClick     =   0   'False
-      SingleSelection =   0   'False
-      NoFolders       =   0   'False
-      Transparent     =   0   'False
-      ViewID          =   "{0057D0E0-3573-11CF-AE69-08002B2E1262}"
-      Location        =   ""
    End
    Begin VB.PictureBox DBGrid1PB 
       Height          =   5535
@@ -331,9 +314,6 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
-' Declaración de API de Windows para Sleep
-Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
-
 ' Tipo para cada etiqueta a imprimir (expande combinaciones)
 Private Type EtiquetaImpresion
     idProducto As Long
@@ -358,9 +338,6 @@ Dim productosPS() As ProductoPrestaShop
 Dim numProductosPS As Integer
 Dim etiquetasParaImprimir() As EtiquetaImpresion
 Dim numEtiquetas As Integer
-
-' Variable de control para saber si el WebBrowser está listo
-Dim qrListo As Boolean
 
 Private Sub Check1_Click()
 If Check1.Value = 1 Then
@@ -390,13 +367,6 @@ Private Sub ImprimeEtiquetas()
     Dim indiceEtiqueta As Integer
 
     On Error GoTo sehodio
-
-    ' Verificar que el generador de QR está listo
-    If Not qrListo Then
-        MsgBox "El generador de códigos QR aún no está listo." & vbCrLf & _
-               "Por favor espere unos segundos y vuelva a intentar.", vbExclamation, "QR no listo"
-        Exit Sub
-    End If
 
     ' Verificar que hay etiquetas para imprimir
     If numEtiquetas = 0 Then
@@ -704,7 +674,6 @@ Next i
 ' NO cargar datos de BD local - los productos se buscarán en PrestaShop
 numProductosPS = 0
 numEtiquetas = 0
-qrListo = False
 
 ' Crear recordset vacío temporal para el grid
 Set RsArtImpr = CrearRecordsetVacio()
@@ -713,65 +682,10 @@ If Not RsArtImpr Is Nothing Then
     Set Data.Recordset = RsArtImpr
 End If
 
-' Deshabilitar botón de imprimir hasta que WebBrowser esté listo
-Command1.Enabled = False
-Command1.Caption = "Cargando QR..."
-
-' Cargar HTML con generador de QR en WebBrowser
-Dim htmlPath As String
-htmlPath = App.Path & "\qr_generator.html"
-If Dir(htmlPath) <> "" Then
-    WebBrowser1.Navigate htmlPath
-    ' El evento DocumentComplete habilitará el botón cuando esté listo
-Else
-    MsgBox "Advertencia: No se encontró qr_generator.html. La generación de códigos QR no funcionará.", vbExclamation
-    Command1.Caption = "ERROR: Sin QR"
-End If
-
 Exit Sub
 
 ErrorHandler:
     MsgBox "Error al inicializar formulario: " & Err.Description, vbCritical
-End Sub
-
-'******************************************************************************
-'* EVENTO: WebBrowser1_DocumentComplete
-'* PROPÓSITO: Se dispara cuando el WebBrowser termina de cargar el HTML
-'******************************************************************************
-Private Sub WebBrowser1_DocumentComplete(ByVal pDisp As Object, URL As Variant)
-    On Error Resume Next
-
-    ' Verificar que JavaScript está listo
-    Dim intentos As Integer
-    Dim jsReady As Boolean
-
-    For intentos = 1 To 20
-        jsReady = False
-        If Not WebBrowser1.Document Is Nothing Then
-            If Not WebBrowser1.Document.parentWindow Is Nothing Then
-                jsReady = WebBrowser1.Document.parentWindow.qrReady
-            End If
-        End If
-
-        If jsReady = True Then Exit For
-        Sleep 100
-        DoEvents
-    Next intentos
-
-    If jsReady Then
-        qrListo = True
-        Command1.Enabled = True
-        Command1.Caption = "Imprime con QR"
-        ' Opcional: Mostrar mensaje de confirmación
-        ' MsgBox "Sistema de códigos QR listo para usar", vbInformation, "QR Listo"
-    Else
-        qrListo = False
-        Command1.Enabled = False
-        Command1.Caption = "ERROR: QR no disponible"
-        MsgBox "El generador de códigos QR no se pudo inicializar correctamente." & vbCrLf & _
-               "Verifique que el archivo qr_generator.html existe y está en la carpeta de la aplicación.", _
-               vbExclamation, "Error QR"
-    End If
 End Sub
 
 Private Sub Text1_Change()
@@ -942,162 +856,82 @@ End Sub
 
 '******************************************************************************
 '* FUNCIÓN: GenerarQRCode
-'* PROPÓSITO: Genera un código QR usando JavaScript y retorna la imagen
+'* PROPÓSITO: Genera un código QR usando control ActiveX QRCodeAX y retorna la imagen
 '* PARÁMETROS:
 '*   - texto: El texto a codificar en el QR (ej: EAN13)
-'*   - tamanoMM: Tamaño del QR en milímetros
+'*   - tamanoMM: Tamaño del QR en milímetros (no usado, el control determina el tamaño)
 '* RETORNA: Object (StdPicture) con la imagen del QR, o Nothing si falla
 '******************************************************************************
 Private Function GenerarQRCode(ByVal texto As String, ByVal tamanoMM As Integer) As Object
     On Error GoTo ErrorHandler
 
-    Dim base64Data As String
-    Dim tempFile As String
+    Dim qrControl As Object
     Dim pic As Object
-    Dim tamanoPixeles As Integer
+    Dim symbols As Object
+    Dim symbol As Object
 
-    Static primeraVez As Boolean  ' Para mostrar debug solo una vez
     Static errorCount As Integer  ' Contador de errores
 
     Set GenerarQRCode = Nothing
 
-    ' El WebBrowser ya debería estar listo (verificado en DocumentComplete)
-    ' Pero hacemos una verificación rápida por seguridad
-    If WebBrowser1.ReadyState <> 4 Or Not qrListo Then
+    ' Crear instancia del control QRCodeAX
+    Set qrControl = CreateObject("QRCodeAX.QRCode")
+
+    If qrControl Is Nothing Then
         errorCount = errorCount + 1
         If errorCount = 1 Then
-            MsgBox "El WebBrowser no está listo. Esto no debería ocurrir." & vbCrLf & _
-                   "Intente cerrar y abrir el formulario nuevamente.", vbExclamation, "Error QR"
+            MsgBox "No se pudo crear el control QRCodeAX." & vbCrLf & _
+                   "Verifique que QRCodeAX.ocx está registrado correctamente.", vbCritical, "Error QR"
         End If
         Exit Function
     End If
 
-    ' Convertir mm a píxeles (aproximadamente 3.78 píxeles por mm para 96 DPI)
-    tamanoPixeles = Int(tamanoMM * 3.78)
-    If tamanoPixeles < 50 Then tamanoPixeles = 50  ' Mínimo 50px
+    ' Configurar el texto del QR
+    qrControl.DataString = texto
 
-    ' Llamar a la función JavaScript para generar QR
-    On Error Resume Next
-    base64Data = WebBrowser1.Document.parentWindow.GenerateQRCode(texto, tamanoPixeles)
+    ' Crear símbolos QR con nivel de corrección L (Low - 7%)
+    ' Parámetros: ErrorCorrectionLevel, maxVersion, byteModeCharset, allowStructuredAppend
+    Set symbols = qrControl.CreateSymbols("L", 0, "utf-8", False)
 
-    If Err.Number <> 0 Then
+    If symbols Is Nothing Or symbols.Count = 0 Then
         errorCount = errorCount + 1
         If errorCount = 1 Then
-            MsgBox "Error al llamar a JavaScript: " & Err.Description, vbCritical, "Error QR"
-        End If
-        On Error GoTo ErrorHandler
-        Exit Function
-    End If
-    On Error GoTo ErrorHandler
-
-    If base64Data = "" Or Left(base64Data, 5) = "ERROR" Then
-        errorCount = errorCount + 1
-        If errorCount = 1 Then
-            MsgBox "JavaScript no pudo generar el QR: " & Left(base64Data, 100), vbExclamation, "Error QR"
+            MsgBox "No se pudieron crear los símbolos QR.", vbCritical, "Error QR"
         End If
         Exit Function
     End If
 
-    ' Crear archivo temporal con timestamp único
-    tempFile = Environ("TEMP") & "\qr_temp_" & Format(Now, "hhnnss") & "_" & Int(Rnd * 10000) & ".bmp"
+    ' Obtener el primer símbolo (normalmente solo hay uno para EAN13)
+    Set symbol = symbols.Item(1)
 
-    ' Decodificar base64 y guardar como archivo
-    If Not Base64ToFile(base64Data, tempFile) Then
+    If symbol Is Nothing Then
         errorCount = errorCount + 1
         If errorCount = 1 Then
-            MsgBox "Error al decodificar base64 o guardar archivo", vbCritical, "Error QR"
+            MsgBox "No se pudo obtener el símbolo QR.", vbCritical, "Error QR"
         End If
         Exit Function
     End If
 
-    ' Cargar imagen desde archivo
-    On Error Resume Next
-    Set pic = LoadPicture(tempFile)
+    ' Obtener la imagen como IPicture (24-bit color)
+    Set pic = symbol.Get24bppImage()
 
-    If Err.Number <> 0 Or pic Is Nothing Then
+    If pic Is Nothing Then
         errorCount = errorCount + 1
         If errorCount = 1 Then
-            MsgBox "Error al cargar imagen: " & Err.Description, vbCritical, "Error QR"
+            MsgBox "No se pudo obtener la imagen del QR.", vbCritical, "Error QR"
         End If
-        On Error GoTo ErrorHandler
         Exit Function
     End If
-    On Error GoTo ErrorHandler
-
-    ' Eliminar archivo temporal
-    On Error Resume Next
-    Kill tempFile
-    On Error GoTo ErrorHandler
 
     Set GenerarQRCode = pic
-
-    ' Mensaje de éxito solo la primera vez
-    If Not primeraVez Then
-        ' Comentado para producción - descomentar si quieres ver confirmación
-        ' MsgBox "¡Primer QR generado con éxito!" & vbCrLf & _
-        '        "Tamaño: " & tamanoPixeles & "px (" & tamanoMM & "mm)", vbInformation, "QR OK"
-        primeraVez = True
-        errorCount = 0  ' Reset del contador de errores tras primer éxito
-    End If
+    errorCount = 0  ' Reset del contador tras éxito
 
     Exit Function
 
 ErrorHandler:
     errorCount = errorCount + 1
     If errorCount = 1 Then
-        MsgBox "Error inesperado: " & Err.Number & " - " & Err.Description, vbCritical, "Error QR"
+        MsgBox "Error al generar QR: " & Err.Number & " - " & Err.Description, vbCritical, "Error QR"
     End If
     Set GenerarQRCode = Nothing
-End Function
-
-'******************************************************************************
-'* FUNCIÓN: Base64ToFile
-'* PROPÓSITO: Convierte una cadena base64 a un archivo
-'* PARÁMETROS:
-'*   - base64String: Cadena en formato base64 (data:image/bmp;base64,...)
-'*   - outputFile: Ruta del archivo de salida
-'* RETORNA: Boolean - True si tuvo éxito
-'******************************************************************************
-Private Function Base64ToFile(ByVal base64String As String, ByVal outputFile As String) As Boolean
-    On Error GoTo ErrorHandler
-
-    Dim stream As Object
-    Dim xmlDoc As Object
-    Dim node As Object
-
-    Base64ToFile = False
-
-    ' Eliminar el prefijo "data:image/bmp;base64," si existe
-    If InStr(base64String, "base64,") > 0 Then
-        base64String = Mid(base64String, InStr(base64String, "base64,") + 7)
-    End If
-
-    ' Crear XML DOM para decodificar base64
-    Set xmlDoc = CreateObject("MSXML2.DOMDocument")
-    Set node = xmlDoc.createElement("b64")
-    node.DataType = "bin.base64"
-    node.Text = base64String
-
-    ' Crear stream para guardar los bytes
-    Set stream = CreateObject("ADODB.Stream")
-    stream.Type = 1  ' adTypeBinary
-    stream.Open
-    stream.Write node.nodeTypedValue
-    stream.SaveToFile outputFile, 2  ' adSaveCreateOverWrite
-    stream.Close
-
-    Base64ToFile = True
-
-    Set stream = Nothing
-    Set node = Nothing
-    Set xmlDoc = Nothing
-    Exit Function
-
-ErrorHandler:
-    Base64ToFile = False
-    On Error Resume Next
-    If Not stream Is Nothing Then stream.Close
-    Set stream = Nothing
-    Set node = Nothing
-    Set xmlDoc = Nothing
 End Function

@@ -165,7 +165,7 @@ Begin VB.Form FrmEtiquetas
          Height          =   315
          Left            =   840
          TabIndex        =   10
-         Text            =   "52"
+         Text            =   "52.5"
          Top             =   360
          Width           =   735
       End
@@ -201,11 +201,11 @@ Begin VB.Form FrmEtiquetas
       TabIndex        =   1
       Top             =   0
       Width           =   7695
-      Begin VB.TextBox Text2 
+      Begin VB.TextBox TxtMargenSuperior
          Height          =   285
          Left            =   4800
          TabIndex        =   24
-         Text            =   "15"
+         Text            =   "0"
          Top             =   720
          Width           =   855
       End
@@ -371,7 +371,7 @@ Private Sub ImprimeEtiquetas()
     MargenInteriorV = Val(TxtMargenInteriorV.Text)
 
     Numetiqver = Int(297 / AltoEtiq)
-    Numetiqhor = Int(210 / AnchoEtiq)
+    Numetiqhor = Int(210 / AnchoEtiq)  ' Usar el ancho exacto configurado
     Contahoriz = 0
     Contaverti = 0
 
@@ -407,13 +407,6 @@ Private Sub ImprimeEtiquetas()
         anchoUtil = AnchoEtiq - (MargenInteriorH * 2)
         altoUtil = AltoEtiq - (MargenInteriorV * 2)
 
-        ' Imprimir logo de Canela (esquina superior izquierda con margen)
-        Dim logoSize As Integer
-        logoSize = Int(altoUtil * 0.35)  ' Logo ocupa 35% del alto útil
-        If logoSize > 10 Then logoSize = 10  ' Máximo 10mm
-        If logoSize < 5 Then logoSize = 5    ' Mínimo 5mm
-        Printer.PaintPicture Image1.Picture, xInicio, yInicio, logoSize, logoSize
-
         ' Imprimir código de barras con fuente IDAutomationHC39M (Code 39)
         ' Tamaño dinámico basado en el ancho de la etiqueta
         Dim ean13 As String
@@ -428,26 +421,30 @@ Private Sub ImprimeEtiquetas()
         If barcodeSize > 14 Then barcodeSize = 14
 
         Printer.FontSize = barcodeSize
-        Printer.CurrentX = xInicio + logoSize + 2
+        Printer.CurrentX = xInicio
         Printer.CurrentY = yInicio
         Printer.Print "*" & ean13 & "*"
 
-        ' Imprimir nombre del producto (debajo del logo)
+        ' Imprimir precio justo debajo del código de barras, alineado a la izquierda, tamaño fijo 14
         Printer.FontName = "Arial"
-
-        ' Tamaño de fuente para nombre (entre 5 y 9 puntos)
-        Dim nombreSize As Integer
-        nombreSize = Int(altoUtil / 4)
-        If nombreSize < 5 Then nombreSize = 5
-        If nombreSize > 9 Then nombreSize = 9
-
-        Printer.FontSize = nombreSize
+        Printer.FontSize = 14
+        Printer.FontBold = True
         Printer.CurrentX = xInicio
-        Printer.CurrentY = yInicio + logoSize + 1
+        Printer.CurrentY = yInicio + 7  ' Justo debajo del código de barras
+        Printer.Print "PVP: " & Format(etiquetasParaImprimir(indiceEtiqueta).PrecioConIVA, "0.00") & Chr(128)
+
+        ' Imprimir nombre del producto a la derecha del precio
+        Dim precioWidth As Integer
+        precioWidth = 20  ' Ancho aproximado del precio en mm
+
+        Printer.FontBold = False
+        Printer.FontSize = 8
+        Printer.CurrentX = xInicio + precioWidth
+        Printer.CurrentY = yInicio + 7  ' Misma línea que el precio
 
         Dim nombreTruncado As String
         Dim maxChars As Integer
-        maxChars = Int(anchoUtil / 2)  ' Aproximadamente 2mm por carácter
+        maxChars = Int((anchoUtil - precioWidth) / 2)  ' Espacio restante después del precio
         nombreTruncado = Left(etiquetasParaImprimir(indiceEtiqueta).NombreProducto, maxChars)
 
         If etiquetasParaImprimir(indiceEtiqueta).Talla <> "" Then
@@ -455,19 +452,6 @@ Private Sub ImprimeEtiquetas()
         Else
             Printer.Print nombreTruncado
         End If
-
-        ' Imprimir precio con IVA (parte inferior con margen)
-        Dim precioSize As Integer
-        precioSize = Int(altoUtil / 2.5)
-        If precioSize < 8 Then precioSize = 8
-        If precioSize > 14 Then precioSize = 14
-
-        Printer.CurrentX = xInicio
-        Printer.CurrentY = Y + AltoEtiq - MargenInteriorV - 5  ' 5mm desde el borde inferior
-        Printer.FontSize = precioSize
-        Printer.FontBold = True
-        Printer.Print "PVP: " & Format(etiquetasParaImprimir(indiceEtiqueta).PrecioConIVA, "0.00") & Chr(128)
-        Printer.FontBold = False
 
         ' Avanzar a siguiente posición
         Contahoriz = Contahoriz + 1
@@ -660,7 +644,7 @@ AltoEtiq = Cmbalto
 Numetiqhor = 3
 Numetiqver = 12
 'MargenSuperior = 3
-MargenSuperior = Int(Text2.Text)
+MargenSuperior = Int(TxtMargenSuperior.Text)
 
 For i = 1 To Numetiqhor
     cmbcolumna.AddItem i
@@ -690,13 +674,13 @@ Private Sub Text1_Change()
 Call DrawBarcode(Text1, Picture1)
 End Sub
 
-Private Sub Text2_Change()
+Private Sub TxtMargenSuperior_Change()
     On Error GoTo sehodio
-    MargenSuperior = Int(Text2.Text)
+    MargenSuperior = Int(TxtMargenSuperior.Text)
     Exit Sub
 sehodio:
-    MsgBox "El margen no se ha podido fijar. Actualmente est� en 3px"
-    MargenSuperior = 3
+    MsgBox "El margen no se ha podido fijar. Actualmente est� en 0mm"
+    MargenSuperior = 0
 End Sub
 
 Private Sub Txtultimo_Change()

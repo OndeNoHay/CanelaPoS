@@ -17,39 +17,39 @@
         }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
         #testQR { margin-top: 20px; }
+        #qrtemp { display: none; }
     </style>
 </head>
 <body>
     <h2>Generador de Códigos QR</h2>
     <div id="status">Inicializando...</div>
     <div id="testQR"></div>
-    <canvas id="qrcanvas" style="display:none;"></canvas>
 
-    <!-- Cargar biblioteca QR externa -->
-    <script src="qrcode.min.js"></script>
+    <!-- Contenedor temporal para generar QR -->
+    <div id="qrtemp"></div>
+
+    <!-- Cargar biblioteca QR externa (davidshimjs/qrcodejs) -->
+    <script src="qrcode.js"></script>
 
     <script>
-    // Variables globales
-    var qrGenerator = null;
     var statusDiv = document.getElementById('status');
 
     // Verificar que la biblioteca se cargó correctamente
     function checkLibrary() {
         try {
-            // La biblioteca de kazuhikoarase expone 'qrcode' en el objeto window
-            if (typeof qrcode === 'undefined') {
+            // La biblioteca davidshimjs/qrcodejs expone 'QRCode' en el objeto window
+            if (typeof QRCode === 'undefined') {
                 statusDiv.className = 'error';
-                statusDiv.innerHTML = '<strong>ERROR:</strong> No se pudo cargar qrcode.min.js<br>' +
+                statusDiv.innerHTML = '<strong>ERROR:</strong> No se pudo cargar qrcode.js<br>' +
                                      'Verifique que el archivo existe en la carpeta de la aplicación.';
-                console.error('qrcode library not found');
+                console.error('QRCode library not found');
                 return false;
             }
 
             statusDiv.className = 'success';
             statusDiv.innerHTML = '<strong>✓ Biblioteca QR cargada correctamente</strong><br>' +
-                                 'Tipo de corrección de errores: L (Low) - 7%<br>' +
+                                 'Biblioteca: qrcodejs (davidshimjs)<br>' +
                                  'Sistema listo para generar códigos QR';
             console.log('QR library loaded successfully');
             return true;
@@ -65,7 +65,7 @@
     // Generar código QR y retornar como imagen base64
     function GenerateQRCode(text, size) {
         try {
-            if (typeof qrcode === 'undefined') {
+            if (typeof QRCode === 'undefined') {
                 return 'ERROR: Biblioteca QR no cargada';
             }
 
@@ -77,51 +77,52 @@
             size = size || 200;
             if (size < 50) size = 50;
 
-            // Crear instancia de QR
-            // typeNumber: 0 = automático (detecta el mejor tamaño)
-            // errorCorrectionLevel: 'L' = Low (7%), 'M' = Medium (15%), 'Q' = Quartile (25%), 'H' = High (30%)
-            var qr = qrcode(0, 'L');
-            qr.addData(text);
-            qr.make();
+            // Limpiar contenedor temporal
+            var container = document.getElementById('qrtemp');
+            container.innerHTML = '';
 
-            // Obtener el tamaño de la matriz QR
-            var moduleCount = qr.getModuleCount();
+            // Generar QR usando la biblioteca
+            var qr = new QRCode(container, {
+                text: text,
+                width: size,
+                height: size,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.L  // L = 7% corrección
+            });
 
-            // Calcular tamaño de cada módulo (celda)
-            var cellSize = Math.floor(size / moduleCount);
-            var actualSize = cellSize * moduleCount;
+            // La biblioteca genera automáticamente un canvas o img
+            // Esperar un momento para que se genere
+            setTimeout(function() {}, 100);
 
-            // Crear canvas
-            var canvas = document.getElementById('qrcanvas');
-            canvas.width = actualSize;
-            canvas.height = actualSize;
-            var ctx = canvas.getContext('2d');
+            // Buscar el canvas o img generado
+            var canvas = container.querySelector('canvas');
+            var img = container.querySelector('img');
 
-            // Fondo blanco
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, actualSize, actualSize);
-
-            // Dibujar módulos del QR
-            ctx.fillStyle = '#000000';
-            for (var row = 0; row < moduleCount; row++) {
-                for (var col = 0; col < moduleCount; col++) {
-                    if (qr.isDark(row, col)) {
-                        ctx.fillRect(
-                            col * cellSize,
-                            row * cellSize,
-                            cellSize,
-                            cellSize
-                        );
-                    }
+            if (canvas) {
+                // Si hay canvas, convertir directamente a base64
+                try {
+                    return canvas.toDataURL('image/png');
+                } catch(e) {
+                    console.error('Error converting canvas to base64:', e);
+                    return 'ERROR: No se pudo convertir canvas a base64';
                 }
-            }
+            } else if (img) {
+                // Si solo hay img, crear un canvas y copiar la imagen
+                var tempCanvas = document.createElement('canvas');
+                tempCanvas.width = size;
+                tempCanvas.height = size;
+                var ctx = tempCanvas.getContext('2d');
 
-            // Convertir a base64
-            // Intentar BMP primero, si falla usar PNG
-            try {
-                return canvas.toDataURL('image/bmp');
-            } catch(e) {
-                return canvas.toDataURL('image/png');
+                // Esperar a que la imagen cargue
+                if (img.complete) {
+                    ctx.drawImage(img, 0, 0, size, size);
+                    return tempCanvas.toDataURL('image/png');
+                } else {
+                    return 'ERROR: Imagen no cargada';
+                }
+            } else {
+                return 'ERROR: No se generó canvas ni imagen';
             }
 
         } catch(e) {
@@ -134,27 +135,33 @@
     function testQR() {
         try {
             var testEAN = '2410788252771';
-            var result = GenerateQRCode(testEAN, 200);
 
-            if (result.indexOf('ERROR') === -1 && result.indexOf('data:image') === 0) {
-                // Mostrar QR de prueba
-                var img = document.createElement('img');
-                img.src = result;
-                img.style.border = '1px solid #ccc';
-                img.style.padding = '10px';
-                img.title = 'QR de prueba: ' + testEAN;
+            // Generar QR visible en la página
+            var testContainer = document.getElementById('testQR');
+            testContainer.innerHTML = '<strong>QR de prueba:</strong><br><div id="testqrcode"></div>';
 
-                var testDiv = document.getElementById('testQR');
-                testDiv.innerHTML = '<strong>QR de prueba generado:</strong><br>';
-                testDiv.appendChild(img);
-                testDiv.innerHTML += '<br><small>EAN13: ' + testEAN + '</small>';
+            var testQRDiv = document.getElementById('testqrcode');
+            var qr = new QRCode(testQRDiv, {
+                text: testEAN,
+                width: 150,
+                height: 150,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.L
+            });
 
-                console.log('Test QR generated successfully, base64 length:', result.length);
-            } else {
-                statusDiv.className = 'error';
-                statusDiv.innerHTML = '<strong>ERROR en prueba:</strong> ' + result;
-                console.error('Test failed:', result);
-            }
+            testContainer.innerHTML += '<br><small>EAN13: ' + testEAN + '</small>';
+
+            // Probar también la función para VB6
+            setTimeout(function() {
+                var result = GenerateQRCode(testEAN, 200);
+                if (result && result.indexOf('ERROR') === -1 && result.indexOf('data:image') === 0) {
+                    console.log('Test QR for VB6 generated successfully, base64 length:', result.length);
+                } else {
+                    console.error('Test for VB6 failed:', result);
+                }
+            }, 200);
+
         } catch(e) {
             statusDiv.className = 'error';
             statusDiv.innerHTML = '<strong>ERROR en prueba:</strong> ' + e.message;
@@ -186,9 +193,9 @@
 
     // Manejo de errores del script externo
     window.addEventListener('error', function(e) {
-        if (e.filename && e.filename.indexOf('qrcode.min.js') !== -1) {
+        if (e.filename && e.filename.indexOf('qrcode.js') !== -1) {
             statusDiv.className = 'error';
-            statusDiv.innerHTML = '<strong>ERROR:</strong> No se pudo cargar qrcode.min.js<br>' +
+            statusDiv.innerHTML = '<strong>ERROR:</strong> No se pudo cargar qrcode.js<br>' +
                                  'Archivo: ' + e.filename + '<br>' +
                                  'Asegúrese de que el archivo está en la carpeta de la aplicación.';
             window.qrReady = false;

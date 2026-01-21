@@ -128,32 +128,56 @@ Begin VB.Form FrmEtiquetas
          Width           =   615
       End
    End
-   Begin VB.Frame Frame2 
+   Begin VB.Frame Frame2
       Caption         =   "Tama�o Etiqueta"
       Height          =   1335
       Left            =   0
       TabIndex        =   7
       Top             =   0
       Width           =   1935
-      Begin VB.ComboBox Cmbalto 
+      Begin VB.TextBox TxtMargenInteriorV
+         Height          =   285
+         Left            =   1320
+         TabIndex        =   29
+         Text            =   "1"
+         Top             =   1200
+         Width           =   375
+      End
+      Begin VB.TextBox TxtMargenInteriorH
+         Height          =   285
+         Left            =   600
+         TabIndex        =   28
+         Text            =   "1"
+         Top             =   1200
+         Width           =   375
+      End
+      Begin VB.ComboBox Cmbalto
          Height          =   315
          ItemData        =   "frmetiquetasPS.frx":09E6
          Left            =   840
          List            =   "frmetiquetasPS.frx":09E8
          TabIndex        =   11
-         Text            =   "35"
+         Text            =   "29.7"
          Top             =   840
          Width           =   735
       End
-      Begin VB.ComboBox Cmbancho 
+      Begin VB.ComboBox Cmbancho
          Height          =   315
          Left            =   840
          TabIndex        =   10
-         Text            =   "70"
+         Text            =   "52"
          Top             =   360
          Width           =   735
       End
-      Begin VB.Label Label4 
+      Begin VB.Label Label7
+         Caption         =   "Márgenes int. H/V:"
+         Height          =   255
+         Left            =   240
+         TabIndex        =   30
+         Top             =   960
+         Width           =   1455
+      End
+      Begin VB.Label Label4
          Caption         =   "Alto"
          Height          =   255
          Left            =   240
@@ -161,7 +185,7 @@ Begin VB.Form FrmEtiquetas
          Top             =   840
          Width           =   495
       End
-      Begin VB.Label Label1 
+      Begin VB.Label Label1
          Caption         =   "Ancho"
          Height          =   255
          Left            =   240
@@ -296,6 +320,8 @@ Dim AltoEtiq, AnchoEtiq As Integer
 Dim RsArtImpr As DAO.Recordset
 Dim PasaPrimerNum As Boolean
 Dim MargenSuperior As Integer
+Dim MargenInteriorH As Integer  ' Margen horizontal interior de la etiqueta (mm)
+Dim MargenInteriorV As Integer  ' Margen vertical interior de la etiqueta (mm)
 
 ' Variables para productos de PrestaShop
 Dim productosPS() As ProductoPrestaShop
@@ -339,8 +365,10 @@ Private Sub ImprimeEtiquetas()
     End If
 
     ' Configurar dimensiones de etiquetas
-    AnchoEtiq = Cmbancho
-    AltoEtiq = Cmbalto
+    AnchoEtiq = Val(Cmbancho.Text)
+    AltoEtiq = Val(Cmbalto.Text)
+    MargenInteriorH = Val(TxtMargenInteriorH.Text)
+    MargenInteriorV = Val(TxtMargenInteriorV.Text)
 
     Numetiqver = Int(297 / AltoEtiq)
     Numetiqhor = Int(210 / AnchoEtiq)
@@ -370,38 +398,74 @@ Private Sub ImprimeEtiquetas()
 
     ' Imprimir todas las etiquetas
     Do While indiceEtiqueta <= numEtiquetas
-        ' Imprimir logo de Canela (esquina superior izquierda)
-        Printer.PaintPicture Image1.Picture, x, Y, 10, 10
+        ' Calcular área útil dentro de la etiqueta (con márgenes interiores)
+        Dim xInicio As Integer, yInicio As Integer
+        Dim anchoUtil As Integer, altoUtil As Integer
+
+        xInicio = x + MargenInteriorH
+        yInicio = Y + MargenInteriorV
+        anchoUtil = AnchoEtiq - (MargenInteriorH * 2)
+        altoUtil = AltoEtiq - (MargenInteriorV * 2)
+
+        ' Imprimir logo de Canela (esquina superior izquierda con margen)
+        Dim logoSize As Integer
+        logoSize = Int(altoUtil * 0.35)  ' Logo ocupa 35% del alto útil
+        If logoSize > 10 Then logoSize = 10  ' Máximo 10mm
+        If logoSize < 5 Then logoSize = 5    ' Mínimo 5mm
+        Printer.PaintPicture Image1.Picture, xInicio, yInicio, logoSize, logoSize
 
         ' Imprimir código de barras con fuente IDAutomationHC39M (Code 39)
+        ' Tamaño dinámico basado en el ancho de la etiqueta
         Dim ean13 As String
         ean13 = Trim(etiquetasParaImprimir(indiceEtiqueta).EAN13)
 
         Printer.FontName = "IDAutomationHC39M"
-        Printer.FontSize = 10
-        Printer.CurrentX = x + 22
-        Printer.CurrentY = Y
+
+        ' Calcular tamaño de fuente dinámicamente (entre 6 y 14 puntos)
+        Dim barcodeSize As Integer
+        barcodeSize = Int(anchoUtil / 5)  ' Aproximadamente 1/5 del ancho útil
+        If barcodeSize < 6 Then barcodeSize = 6
+        If barcodeSize > 14 Then barcodeSize = 14
+
+        Printer.FontSize = barcodeSize
+        Printer.CurrentX = xInicio + logoSize + 2
+        Printer.CurrentY = yInicio
         Printer.Print "*" & ean13 & "*"
 
         ' Imprimir nombre del producto (debajo del logo)
         Printer.FontName = "Arial"
-        Printer.FontSize = 7
-        Printer.CurrentX = x
-        Printer.CurrentY = Y + 12
+
+        ' Tamaño de fuente para nombre (entre 5 y 9 puntos)
+        Dim nombreSize As Integer
+        nombreSize = Int(altoUtil / 4)
+        If nombreSize < 5 Then nombreSize = 5
+        If nombreSize > 9 Then nombreSize = 9
+
+        Printer.FontSize = nombreSize
+        Printer.CurrentX = xInicio
+        Printer.CurrentY = yInicio + logoSize + 1
+
         Dim nombreTruncado As String
-        nombreTruncado = Left(etiquetasParaImprimir(indiceEtiqueta).NombreProducto, 30)
+        Dim maxChars As Integer
+        maxChars = Int(anchoUtil / 2)  ' Aproximadamente 2mm por carácter
+        nombreTruncado = Left(etiquetasParaImprimir(indiceEtiqueta).NombreProducto, maxChars)
+
         If etiquetasParaImprimir(indiceEtiqueta).Talla <> "" Then
             Printer.Print nombreTruncado & " - " & etiquetasParaImprimir(indiceEtiqueta).Talla
         Else
             Printer.Print nombreTruncado
         End If
 
-        ' Imprimir precio con IVA (parte inferior)
-        Printer.CurrentX = x
-        Printer.CurrentY = Y + 17
-        Printer.FontSize = 12
+        ' Imprimir precio con IVA (parte inferior con margen)
+        Dim precioSize As Integer
+        precioSize = Int(altoUtil / 2.5)
+        If precioSize < 8 Then precioSize = 8
+        If precioSize > 14 Then precioSize = 14
+
+        Printer.CurrentX = xInicio
+        Printer.CurrentY = Y + AltoEtiq - MargenInteriorV - 5  ' 5mm desde el borde inferior
+        Printer.FontSize = precioSize
         Printer.FontBold = True
-        ' Usar Chr(128) para euro en VB6, o usar formato sin símbolo
         Printer.Print "PVP: " & Format(etiquetasParaImprimir(indiceEtiqueta).PrecioConIVA, "0.00") & Chr(128)
         Printer.FontBold = False
 

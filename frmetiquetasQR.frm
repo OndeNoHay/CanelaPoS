@@ -331,6 +331,9 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 
+' Declaración de API de Windows para Sleep
+Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+
 ' Tipo para cada etiqueta a imprimir (expande combinaciones)
 Private Type EtiquetaImpresion
     idProducto As Long
@@ -893,65 +896,123 @@ Private Function GenerarQRCode(ByVal texto As String, ByVal tamanoMM As Integer)
 
     Dim base64Data As String
     Dim tempFile As String
-    Dim fso As Object
-    Dim stream As Object
     Dim pic As Object
     Dim retryCount As Integer
     Dim maxRetries As Integer
+    Dim i As Integer
+    Dim debugMsg As String
 
     Set GenerarQRCode = Nothing
-    maxRetries = 10
+    maxRetries = 50
     retryCount = 0
 
-    ' Esperar a que el WebBrowser esté listo
+    ' Debug: verificar estado del WebBrowser
+    debugMsg = "WebBrowser ReadyState: " & WebBrowser1.ReadyState & vbCrLf
+
+    ' Esperar a que el WebBrowser esté listo (ReadyState = 4 = READYSTATE_COMPLETE)
     Do While WebBrowser1.ReadyState <> 4 And retryCount < maxRetries
+        Sleep 100  ' Esperar 100ms
         DoEvents
         retryCount = retryCount + 1
-        If retryCount > maxRetries Then
-            Exit Function
-        End If
     Loop
+
+    If WebBrowser1.ReadyState <> 4 Then
+        debugMsg = debugMsg & "WebBrowser no está listo" & vbCrLf
+        MsgBox debugMsg, vbExclamation, "Debug QR"
+        Exit Function
+    End If
+
+    debugMsg = debugMsg & "WebBrowser listo" & vbCrLf
 
     ' Verificar que JavaScript está listo
     retryCount = 0
+    Dim jsReady As Boolean
+    jsReady = False
+
     Do While retryCount < maxRetries
         On Error Resume Next
-        Dim jsReady As Boolean
-        jsReady = WebBrowser1.Document.parentWindow.qrReady
+        jsReady = False
+        If Not WebBrowser1.Document Is Nothing Then
+            If Not WebBrowser1.Document.parentWindow Is Nothing Then
+                jsReady = WebBrowser1.Document.parentWindow.qrReady
+            End If
+        End If
         On Error GoTo ErrorHandler
 
-        If jsReady Then Exit Do
+        If jsReady = True Then Exit Do
+        Sleep 100
         DoEvents
         retryCount = retryCount + 1
-        If retryCount >= maxRetries Then
-            Exit Function
-        End If
     Loop
+
+    If Not jsReady Then
+        debugMsg = debugMsg & "JavaScript no está listo" & vbCrLf
+        MsgBox debugMsg, vbExclamation, "Debug QR"
+        Exit Function
+    End If
+
+    debugMsg = debugMsg & "JavaScript listo" & vbCrLf
 
     ' Convertir mm a píxeles (aproximadamente 3.78 píxeles por mm para 96 DPI)
     Dim tamanoPixeles As Integer
     tamanoPixeles = Int(tamanoMM * 3.78)
     If tamanoPixeles < 50 Then tamanoPixeles = 50  ' Mínimo 50px
 
+    debugMsg = debugMsg & "Tamaño: " & tamanoPixeles & "px" & vbCrLf
+    debugMsg = debugMsg & "Texto: " & texto & vbCrLf
+
     ' Llamar a la función JavaScript para generar QR
     On Error Resume Next
+    base64Data = ""
     base64Data = WebBrowser1.Document.parentWindow.GenerateQRCode(texto, tamanoPixeles)
+
+    If Err.Number <> 0 Then
+        debugMsg = debugMsg & "Error JS: " & Err.Description & vbCrLf
+        On Error GoTo ErrorHandler
+        MsgBox debugMsg, vbCritical, "Debug QR"
+        Exit Function
+    End If
     On Error GoTo ErrorHandler
 
     If base64Data = "" Or Left(base64Data, 5) = "ERROR" Then
+        debugMsg = debugMsg & "Base64 vacío o error: " & Left(base64Data, 50) & vbCrLf
+        MsgBox debugMsg, vbExclamation, "Debug QR"
         Exit Function
     End If
 
-    ' Crear archivo temporal para la imagen
-    tempFile = Environ("TEMP") & "\qr_temp_" & Format(Now, "hhnnss") & ".bmp"
+    debugMsg = debugMsg & "Base64 OK (len=" & Len(base64Data) & ")" & vbCrLf
+
+    ' Crear archivo temporal para la imagen con timestamp único
+    tempFile = Environ("TEMP") & "\qr_temp_" & Format(Now, "hhnnssms") & "_" & Int(Rnd * 10000) & ".bmp"
 
     ' Decodificar base64 y guardar como archivo
     If Not Base64ToFile(base64Data, tempFile) Then
+        debugMsg = debugMsg & "Error al guardar archivo" & vbCrLf
+        MsgBox debugMsg, vbCritical, "Debug QR"
         Exit Function
     End If
 
+    debugMsg = debugMsg & "Archivo guardado: " & tempFile & vbCrLf
+
     ' Cargar imagen desde archivo
+    On Error Resume Next
     Set pic = LoadPicture(tempFile)
+
+    If Err.Number <> 0 Then
+        debugMsg = debugMsg & "Error LoadPicture: " & Err.Description & vbCrLf
+        On Error GoTo ErrorHandler
+        MsgBox debugMsg, vbCritical, "Debug QR"
+        Exit Function
+    End If
+    On Error GoTo ErrorHandler
+
+    If pic Is Nothing Then
+        debugMsg = debugMsg & "pic es Nothing después de LoadPicture" & vbCrLf
+        MsgBox debugMsg, vbCritical, "Debug QR"
+        Exit Function
+    End If
+
+    debugMsg = debugMsg & "LoadPicture OK" & vbCrLf
 
     ' Eliminar archivo temporal
     On Error Resume Next
@@ -959,9 +1020,19 @@ Private Function GenerarQRCode(ByVal texto As String, ByVal tamanoMM As Integer)
     On Error GoTo ErrorHandler
 
     Set GenerarQRCode = pic
+
+    ' Debug: Mostrar solo en la primera etiqueta
+    Static primeraVez As Boolean
+    If Not primeraVez Then
+        MsgBox debugMsg & "¡QR generado con éxito!", vbInformation, "Debug QR"
+        primeraVez = True
+    End If
+
     Exit Function
 
 ErrorHandler:
+    debugMsg = debugMsg & "Error: " & Err.Number & " - " & Err.Description & vbCrLf
+    MsgBox debugMsg, vbCritical, "Error QR"
     Set GenerarQRCode = Nothing
 End Function
 

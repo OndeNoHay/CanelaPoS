@@ -628,13 +628,16 @@ Private Sub Command3_Click()
             ' Crear una etiqueta por cada combinación (talla)
             For j = 1 To producto.NumCombinaciones
                 If producto.Combinaciones(j).stock > 0 Then
-                    numEtiquetas = numEtiquetas + 1
-                    etiquetasParaImprimir(numEtiquetas).idProducto = producto.idProducto
-                    etiquetasParaImprimir(numEtiquetas).ean13 = producto.EAN
-                    etiquetasParaImprimir(numEtiquetas).NombreProducto = producto.Nombre
-                    etiquetasParaImprimir(numEtiquetas).Talla = producto.Combinaciones(j).Talla
-                    etiquetasParaImprimir(numEtiquetas).PrecioConIVA = producto.PrecioConIVA
-                    etiquetasParaImprimir(numEtiquetas).idCombinacion = producto.Combinaciones(j).idCombinacion
+                    ' Crear tantas etiquetas como unidades en stock
+                    For k = 1 To producto.Combinaciones(j).stock
+                        numEtiquetas = numEtiquetas + 1
+                        etiquetasParaImprimir(numEtiquetas).idProducto = producto.idProducto
+                        etiquetasParaImprimir(numEtiquetas).ean13 = producto.EAN
+                        etiquetasParaImprimir(numEtiquetas).NombreProducto = producto.Nombre
+                        etiquetasParaImprimir(numEtiquetas).Talla = producto.Combinaciones(j).Talla
+                        etiquetasParaImprimir(numEtiquetas).PrecioConIVA = producto.PrecioConIVA
+                        etiquetasParaImprimir(numEtiquetas).idCombinacion = producto.Combinaciones(j).idCombinacion
+                    Next k
                 End If
             Next j
         Else

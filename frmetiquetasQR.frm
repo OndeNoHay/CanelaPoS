@@ -428,6 +428,8 @@ Private Sub ImprimeEtiquetas()
 
     ' Configurar impresora A4
     Printer.ScaleMode = 6  ' Milímetros
+    Printer.PaperSize = vbPRPSA4  ' 9 = A4 (210 x 297 mm)
+    Printer.Orientation = vbPRORPortrait  ' 1 = Vertical
     NumImpresa = 0
     indiceEtiqueta = 1
 

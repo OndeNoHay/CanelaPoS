@@ -1,6 +1,7 @@
 VERSION 5.00
 Object = "{00028C01-0000-0000-0000-000000000046}#1.0#0"; "dbgrid32.ocx"
-Begin VB.Form FrmEtiquetasQR
+Object = "{89D94A1E-DB65-4469-AFB5-D54C6F6B7639}#1.1#0"; "QRCodeAX.ocx"
+Begin VB.Form FrmEtiquetasQR 
    Caption         =   "Etiquetas PrestaShop con QR"
    ClientHeight    =   7935
    ClientLeft      =   60
@@ -11,35 +12,34 @@ Begin VB.Form FrmEtiquetasQR
    ScaleMode       =   6  'Millimeter
    ScaleWidth      =   231.775
    StartUpPosition =   3  'Windows Default
-   Begin VB.PictureBox QRCodePicture
-      Height          =   15
-      Left            =   0
-      ScaleHeight     =   9
-      ScaleWidth      =   9
+   Begin QRCodeAX.QR QRCodePicture 
+      Height          =   735
+      Left            =   11400
       TabIndex        =   31
-      Top             =   0
-      Visible         =   0   'False
-      Width           =   15
+      Top             =   7080
+      Width           =   735
+      _ExtentX        =   1296
+      _ExtentY        =   1296
    End
    Begin VB.PictureBox DBGrid1PB 
-      Height          =   5535
+      Height          =   4935
       Left            =   0
-      ScaleHeight     =   5475
+      ScaleHeight     =   4875
       ScaleWidth      =   13035
       TabIndex        =   26
-      Top             =   1440
+      Top             =   2040
       Width           =   13095
       Begin MSDBGrid.DBGrid DBGrid1 
          Bindings        =   "frmetiquetasQR.frx":0000
-         Height          =   5535
-         Left            =   -120
+         Height          =   4935
+         Left            =   0
          OleObjectBlob   =   "frmetiquetasQR.frx":0013
          TabIndex        =   27
          Top             =   0
          Width           =   13215
       End
    End
-   Begin VB.CommandButton Command3
+   Begin VB.CommandButton Command3 
       Caption         =   "Buscar en PrestaShop"
       Height          =   495
       Left            =   120
@@ -83,7 +83,7 @@ Begin VB.Form FrmEtiquetasQR
    End
    Begin VB.Frame Frame3 
       Caption         =   "Intervalo Impresi�n"
-      Height          =   1335
+      Height          =   1815
       Left            =   9600
       TabIndex        =   13
       Top             =   0
@@ -102,7 +102,7 @@ Begin VB.Form FrmEtiquetasQR
          Top             =   330
          Width           =   735
       End
-      Begin VB.CommandButton Command1
+      Begin VB.CommandButton Command1 
          Caption         =   "Imprime con QR"
          Height          =   255
          Left            =   960
@@ -138,30 +138,30 @@ Begin VB.Form FrmEtiquetasQR
          Width           =   615
       End
    End
-   Begin VB.Frame Frame2
+   Begin VB.Frame Frame2 
       Caption         =   "Tama�o Etiqueta"
-      Height          =   1335
+      Height          =   1815
       Left            =   0
       TabIndex        =   7
       Top             =   0
       Width           =   1935
-      Begin VB.TextBox TxtMargenInteriorV
+      Begin VB.TextBox TxtMargenInteriorV 
          Height          =   285
          Left            =   1320
          TabIndex        =   29
          Text            =   "1"
-         Top             =   1200
+         Top             =   1440
          Width           =   375
       End
-      Begin VB.TextBox TxtMargenInteriorH
+      Begin VB.TextBox TxtMargenInteriorH 
          Height          =   285
          Left            =   600
          TabIndex        =   28
          Text            =   "1"
-         Top             =   1200
+         Top             =   1440
          Width           =   375
       End
-      Begin VB.ComboBox Cmbalto
+      Begin VB.ComboBox Cmbalto 
          Height          =   315
          ItemData        =   "frmetiquetasQR.frx":09E6
          Left            =   840
@@ -171,7 +171,7 @@ Begin VB.Form FrmEtiquetasQR
          Top             =   840
          Width           =   735
       End
-      Begin VB.ComboBox Cmbancho
+      Begin VB.ComboBox Cmbancho 
          Height          =   315
          Left            =   840
          TabIndex        =   10
@@ -179,15 +179,15 @@ Begin VB.Form FrmEtiquetasQR
          Top             =   360
          Width           =   735
       End
-      Begin VB.Label Label7
+      Begin VB.Label Label7 
          Caption         =   "Márgenes int. H/V:"
          Height          =   255
          Left            =   240
          TabIndex        =   30
-         Top             =   960
-         Width           =   1455
+         Top             =   1200
+         Width           =   1695
       End
-      Begin VB.Label Label4
+      Begin VB.Label Label4 
          Caption         =   "Alto"
          Height          =   255
          Left            =   240
@@ -195,7 +195,7 @@ Begin VB.Form FrmEtiquetasQR
          Top             =   840
          Width           =   495
       End
-      Begin VB.Label Label1
+      Begin VB.Label Label1 
          Caption         =   "Ancho"
          Height          =   255
          Left            =   240
@@ -206,12 +206,12 @@ Begin VB.Form FrmEtiquetasQR
    End
    Begin VB.Frame Frame1 
       Caption         =   "Condiciones Impresi�n"
-      Height          =   1335
+      Height          =   1815
       Left            =   1920
       TabIndex        =   1
       Top             =   0
       Width           =   7695
-      Begin VB.TextBox TxtMargenSuperior
+      Begin VB.TextBox TxtMargenSuperior 
          Height          =   285
          Left            =   4800
          TabIndex        =   24
@@ -317,7 +317,7 @@ Attribute VB_Exposed = False
 ' Tipo para cada etiqueta a imprimir (expande combinaciones)
 Private Type EtiquetaImpresion
     idProducto As Long
-    EAN13 As String
+    ean13 As String
     NombreProducto As String
     Talla As String
     PrecioConIVA As Currency
@@ -419,13 +419,13 @@ Private Sub ImprimeEtiquetas()
 
         ' Generar e imprimir código QR
         Dim ean13 As String
-        ean13 = Trim(etiquetasParaImprimir(indiceEtiqueta).EAN13)
+        ean13 = Trim(etiquetasParaImprimir(indiceEtiqueta).ean13)
 
         ' Tamaño del QR (cuadrado) basado en el alto útil
         Dim qrSize As Integer
-        qrSize = Int(altoUtil * 0.7)  ' 70% del alto útil
+        qrSize = Int(altoUtil * 0.8)  ' 70% del alto útil
         If qrSize < 10 Then qrSize = 10   ' Mínimo 10mm
-        If qrSize > 25 Then qrSize = 25   ' Máximo 25mm
+        If qrSize > 27 Then qrSize = 27   ' Máximo 25mm
 
         ' Generar QR code y obtener imagen
         Dim qrPicture As Object
@@ -445,17 +445,23 @@ Private Sub ImprimeEtiquetas()
 
         ' Imprimir precio a la derecha del QR, en la parte superior
         Printer.FontName = "Arial"
+        Printer.FontSize = 8
+        Printer.FontBold = False
+        Printer.CurrentX = xInicio + qrSize + 1  ' 2mm de separación del QR
+        Printer.CurrentY = yInicio + 1
+        Printer.Print "PVP: "
+        
         Printer.FontSize = 14
         Printer.FontBold = True
-        Printer.CurrentX = xInicio + qrSize + 2  ' 2mm de separación del QR
-        Printer.CurrentY = yInicio
-        Printer.Print "PVP: " & Format(etiquetasParaImprimir(indiceEtiqueta).PrecioConIVA, "0.00") & Chr(128)
+        Printer.CurrentX = xInicio + qrSize + 6  ' 2mm de separación del QR
+        Printer.CurrentY = yInicio + 4
+        Printer.Print Format(etiquetasParaImprimir(indiceEtiqueta).PrecioConIVA, "0.00") & Chr(128)
 
         ' Imprimir nombre del producto a la derecha del QR, debajo del precio
         Printer.FontBold = False
         Printer.FontSize = 8
         Printer.CurrentX = xInicio + qrSize + 2  ' Alineado con el precio
-        Printer.CurrentY = yInicio + 6  ' Debajo del precio
+        Printer.CurrentY = yInicio + 9  ' Debajo del precio
 
         Dim nombreTruncado As String
         Dim maxChars As Integer
@@ -495,7 +501,7 @@ Private Sub ImprimeEtiquetas()
     Loop
 
     Printer.EndDoc
-    MsgBox "Impresión completada: " & NumImpresa & " etiquetas", vbInformation, "Etiquetas PrestaShop"
+    'MsgBox "Impresión completada: " & NumImpresa & " etiquetas", vbInformation, "Etiquetas PrestaShop"
     Exit Sub
 
 sehodio:
@@ -556,13 +562,13 @@ Private Sub Command3_Click()
     On Error GoTo ErrorHandler
 
     ' Validar que se han introducido los IDs
-    If Trim(TxtPrimero.Text) = "" Or Trim(TxtUltimo.Text) = "" Then
+    If Trim(Txtprimero.Text) = "" Or Trim(Txtultimo.Text) = "" Then
         MsgBox "Por favor, introduzca el rango de IDs de productos (Desde/Hasta)", vbExclamation
         Exit Sub
     End If
 
-    idInicio = CLng(Val(TxtPrimero.Text))
-    idFin = CLng(Val(TxtUltimo.Text))
+    idInicio = CLng(Val(Txtprimero.Text))
+    idFin = CLng(Val(Txtultimo.Text))
 
     If idInicio < 1 Or idFin < idInicio Then
         MsgBox "Rango de IDs inválido. El ID final debe ser mayor o igual que el inicial.", vbExclamation
@@ -597,7 +603,7 @@ Private Sub Command3_Click()
                 If producto.Combinaciones(j).stock > 0 Then
                     numEtiquetas = numEtiquetas + 1
                     etiquetasParaImprimir(numEtiquetas).idProducto = producto.idProducto
-                    etiquetasParaImprimir(numEtiquetas).EAN13 = producto.EAN
+                    etiquetasParaImprimir(numEtiquetas).ean13 = producto.EAN
                     etiquetasParaImprimir(numEtiquetas).NombreProducto = producto.Nombre
                     etiquetasParaImprimir(numEtiquetas).Talla = producto.Combinaciones(j).Talla
                     etiquetasParaImprimir(numEtiquetas).PrecioConIVA = producto.PrecioConIVA
@@ -608,7 +614,7 @@ Private Sub Command3_Click()
             ' Producto estándar - una sola etiqueta
             numEtiquetas = numEtiquetas + 1
             etiquetasParaImprimir(numEtiquetas).idProducto = producto.idProducto
-            etiquetasParaImprimir(numEtiquetas).EAN13 = producto.EAN
+            etiquetasParaImprimir(numEtiquetas).ean13 = producto.EAN
             etiquetasParaImprimir(numEtiquetas).NombreProducto = producto.Nombre
             etiquetasParaImprimir(numEtiquetas).Talla = ""
             etiquetasParaImprimir(numEtiquetas).PrecioConIVA = producto.PrecioConIVA
@@ -628,7 +634,7 @@ Private Sub Command3_Click()
     lbnumero.Caption = "Productos: " & numProductosPS & " | Etiquetas: " & numEtiquetas
 
     Me.MousePointer = vbDefault
-    MsgBox "Se encontraron " & numProductosPS & " productos." & vbCrLf & _
+    'MsgBox "Se encontraron " & numProductosPS & " productos." & vbCrLf & _
            "Total de etiquetas a imprimir: " & numEtiquetas, vbInformation, "Búsqueda completada"
 
     Exit Sub
@@ -645,10 +651,10 @@ End Sub
 
 Private Sub DBGrid1_RowColChange(LastRow As Variant, ByVal LastCol As Integer)
 If PasaPrimerNum = True Then
-    TxtPrimero = DBGrid1.Text
+    Txtprimero = DBGrid1.Text
     PasaPrimerNum = False
 Else
-    TxtUltimo = DBGrid1.Text
+    Txtultimo = DBGrid1.Text
     PasaPrimerNum = True
 End If
 
@@ -704,7 +710,7 @@ End Sub
 Private Sub Txtultimo_Change()
 On Error Resume Next
     Dim canti As Integer
-    canti = Val(TxtUltimo.Text) - Val(TxtPrimero.Text) + 1
+    canti = Val(Txtultimo.Text) - Val(Txtprimero.Text) + 1
     If canti <= 0 Then lbnumero = "": Exit Sub
     lbnumero = "Rango: " & canti & " IDs"
 End Sub
@@ -834,7 +840,7 @@ Private Sub PoblarGridConProductos()
         With RsArtImpr
             .AddNew
             !idProducto = etiquetasParaImprimir(i).idProducto
-            !EAN13 = etiquetasParaImprimir(i).EAN13
+            !ean13 = etiquetasParaImprimir(i).ean13
             !Nombre = etiquetasParaImprimir(i).NombreProducto
             !Talla = etiquetasParaImprimir(i).Talla
             !Precio = etiquetasParaImprimir(i).PrecioConIVA

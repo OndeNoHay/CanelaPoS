@@ -865,65 +865,29 @@ End Sub
 Private Function GenerarQRCode(ByVal texto As String, ByVal tamanoMM As Integer) As Object
     On Error GoTo ErrorHandler
 
-    Dim qrControl As Object
-    Dim pic As Object
-    Dim symbols As Object
-    Dim symbol As Object
-
     Static errorCount As Integer  ' Contador de errores
 
     Set GenerarQRCode = Nothing
 
-    ' Crear instancia del control QRCodeAX
-    Set qrControl = CreateObject("QRCodeAX.QRCode")
+    ' Verificar que el texto no está vacío
+    If Trim(texto) = "" Then
+        Exit Function
+    End If
 
-    If qrControl Is Nothing Then
+    ' Configurar el control QRCodePicture con el texto
+    QRCodePicture.DataString = texto
+
+    ' Verificar que se generó la imagen
+    If QRCodePicture.Picture Is Nothing Then
         errorCount = errorCount + 1
         If errorCount = 1 Then
-            MsgBox "No se pudo crear el control QRCodeAX." & vbCrLf & _
-                   "Verifique que QRCodeAX.ocx está registrado correctamente.", vbCritical, "Error QR"
+            MsgBox "El control QRCodePicture no generó la imagen correctamente.", vbCritical, "Error QR"
         End If
         Exit Function
     End If
 
-    ' Configurar el texto del QR
-    qrControl.DataString = texto
-
-    ' Crear símbolos QR con nivel de corrección L (Low - 7%)
-    ' Parámetros: ErrorCorrectionLevel, maxVersion, byteModeCharset, allowStructuredAppend
-    Set symbols = qrControl.CreateSymbols("L", 0, "utf-8", False)
-
-    If symbols Is Nothing Or symbols.Count = 0 Then
-        errorCount = errorCount + 1
-        If errorCount = 1 Then
-            MsgBox "No se pudieron crear los símbolos QR.", vbCritical, "Error QR"
-        End If
-        Exit Function
-    End If
-
-    ' Obtener el primer símbolo (normalmente solo hay uno para EAN13)
-    Set symbol = symbols.Item(1)
-
-    If symbol Is Nothing Then
-        errorCount = errorCount + 1
-        If errorCount = 1 Then
-            MsgBox "No se pudo obtener el símbolo QR.", vbCritical, "Error QR"
-        End If
-        Exit Function
-    End If
-
-    ' Obtener la imagen como IPicture (24-bit color)
-    Set pic = symbol.Get24bppImage()
-
-    If pic Is Nothing Then
-        errorCount = errorCount + 1
-        If errorCount = 1 Then
-            MsgBox "No se pudo obtener la imagen del QR.", vbCritical, "Error QR"
-        End If
-        Exit Function
-    End If
-
-    Set GenerarQRCode = pic
+    ' Retornar la imagen del control
+    Set GenerarQRCode = QRCodePicture.Picture
     errorCount = 0  ' Reset del contador tras éxito
 
     Exit Function

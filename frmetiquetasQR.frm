@@ -252,13 +252,38 @@ Begin VB.Form FrmEtiquetasQR
          Top             =   240
          Width           =   1095
       End
-      Begin VB.ComboBox cmbcolumna 
+      Begin VB.ComboBox cmbcolumna
          Enabled         =   0   'False
          Height          =   315
          Left            =   3120
          TabIndex        =   4
          Top             =   240
          Width           =   975
+      End
+      Begin VB.Frame FrameOrden
+         Caption         =   "Orden de impresi�n"
+         Height          =   735
+         Left            =   120
+         TabIndex        =   32
+         Top             =   1080
+         Width           =   3015
+         Begin VB.OptionButton OptOrdenAlfabetico
+            Caption         =   "Orden alfab�tico (A-Z)"
+            Height          =   255
+            Left            =   120
+            TabIndex        =   34
+            Top             =   240
+            Value           =   -1  'True
+            Width           =   2655
+         End
+         Begin VB.OptionButton OptOrdenID
+            Caption         =   "Orden por ID de producto"
+            Height          =   255
+            Left            =   120
+            TabIndex        =   33
+            Top             =   480
+            Width           =   2655
+         End
       End
       Begin VB.Label Label5 
          Caption         =   "Margen Superior"
@@ -627,6 +652,11 @@ Private Sub Command3_Click()
         ReDim Preserve etiquetasParaImprimir(1 To numEtiquetas)
     End If
 
+    ' Ordenar alfabéticamente si está seleccionada esa opción
+    If OptOrdenAlfabetico.Value = True Then
+        OrdenarEtiquetasAlfabeticamente
+    End If
+
     ' Poblar el grid con los datos
     PoblarGridConProductos
 
@@ -858,6 +888,36 @@ Private Sub PoblarGridConProductos()
 
 ErrorHandler:
     MsgBox "Error al poblar grid: " & Err.Description & " (Err #" & Err.Number & ")", vbCritical
+End Sub
+
+'******************************************************************************
+'* FUNCIÓN: OrdenarEtiquetasAlfabeticamente
+'* PROPÓSITO: Ordena el array etiquetasParaImprimir por nombre de producto (A-Z)
+'******************************************************************************
+Private Sub OrdenarEtiquetasAlfabeticamente()
+    On Error Resume Next
+
+    Dim i As Integer
+    Dim j As Integer
+    Dim temp As EtiquetaImpresion
+    Dim nombreA As String
+    Dim nombreB As String
+
+    ' Ordenamiento de burbuja (Bubble Sort) por nombre de producto
+    For i = 1 To numEtiquetas - 1
+        For j = i + 1 To numEtiquetas
+            ' Comparar nombres (ignorar mayúsculas/minúsculas)
+            nombreA = UCase(Trim(etiquetasParaImprimir(i).NombreProducto))
+            nombreB = UCase(Trim(etiquetasParaImprimir(j).NombreProducto))
+
+            If nombreA > nombreB Then
+                ' Intercambiar etiquetas
+                temp = etiquetasParaImprimir(i)
+                etiquetasParaImprimir(i) = etiquetasParaImprimir(j)
+                etiquetasParaImprimir(j) = temp
+            End If
+        Next j
+    Next i
 End Sub
 
 '******************************************************************************
